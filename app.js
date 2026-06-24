@@ -51,8 +51,8 @@
       bindBench();
       bindTabs();
       const manifest = await fetchJSON("./data/manifest.json");
-      PLAYERS = (manifest.players || []).filter((p) => (p.sessions || []).length);
-      if (!PLAYERS.length) return showState("manifest 裡沒有任何球員/場次。在 <b>data/manifest.json</b> 加一筆，並把 CSV 放進 <b>data/</b>。");
+      PLAYERS = manifest.players || [];
+      if (!PLAYERS.length) return showState("manifest 裡沒有任何球員。在 <b>data/manifest.json</b> 加一筆，並把 CSV 放進 <b>data/</b>。");
       const psel = document.querySelector("#player-select");
       psel.innerHTML = PLAYERS.map((p, i) => '<option value="' + i + '">' + esc(p.name || p.id) + (p.handicap ? "（差點 " + esc(p.handicap) + "）" : "") + "</option>").join("");
       psel.addEventListener("change", () => loadPlayer(PLAYERS[+psel.value]));
@@ -71,8 +71,19 @@
   async function loadPlayer(p) {
     curPlayer = p;
     showState("讀取中…");
+    const sessions = p.sessions || [];
+    if (!sessions.length) {
+      LOADED = [];
+      ALLMODEL = null;
+      ALLANALYSIS = null;
+      MODEL = null;
+      ANALYSIS = null;
+      document.querySelector("#session-select").innerHTML = '<option value="">尚無場次</option>';
+      document.querySelector("#sel-meta").textContent = "尚未匯入 CSV";
+      return showState("這位球員目前還沒有 CSV 場次。把檔案放進 <b>data/" + esc(p.id || "") + "/</b>，並更新 <b>data/manifest.json</b> 後，就會顯示在這裡。");
+    }
     const loaded = [];
-    await Promise.all((p.sessions || []).map(async (s) => {
+    await Promise.all(sessions.map(async (s) => {
       try {
         const text = await fetchText("./data/" + s.file);
         const shots = parseCSV(text);

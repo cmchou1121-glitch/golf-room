@@ -24,6 +24,38 @@ assets/golf-cat-ip/     ← 吉祥物素材
 
 > 新球員：在 `players` 加一個物件即可（id 用英數）。
 
+## 半自動匯入 workflow
+
+目前已設定球員代號：
+`tony`、`renwen`、`dondon`、`ann`、`yoyo`、`kelly`
+
+把 CSV 放在任何本機資料夾後，可以用腳本匯入：
+
+```bash
+python3 scripts/import_session.py renwen "/path/to/2026-07-01.csv" --label "練習場"
+```
+
+需要排除某個球桿標籤時：
+
+```bash
+python3 scripts/import_session.py tony "/path/to/2026-04-01.csv" --date 2026-04-01 --exclude-club "?"
+```
+
+腳本會：
+
+1. 檢查 CSV 必要欄位。
+2. 複製到 `data/<球員代號>/`。
+3. 更新 `data/manifest.json`。
+
+確認變更後再發布：
+
+```bash
+git diff
+git add data/manifest.json data/<球員代號>/*.csv
+git commit -m "Add golf session data"
+git push
+```
+
 ## CSV 欄位需求
 
 至少需要這幾欄（Garmin R10 中文匯出格式）：
