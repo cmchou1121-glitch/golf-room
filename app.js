@@ -29,9 +29,16 @@
   const WOODS = { "2H": 1, "3H": 1, "4H": 1, "5H": 1, "6H": 1, "2W": 1, "3W": 1, "4W": 1, "5W": 1, "7W": 1, "9W": 1, D: 1 };
   const WEDGES = { LW: 1, SW: 1, W: 1, GW: 1, AW: 1, PW: 1 };
 
-  let MODEL = null;
+  let MODEL = null, ANALYSIS = null;        // 目前顯示的模型（依場次選擇）
   let MODE = "both";
   let BENCH = "hcp20";
+  let TAB = "data";
+  let PLAYERS = [];
+  let curPlayer = null;
+  let LOADED = [];                          // 該球員每一場 {meta, shots, model, analysis}
+  let ALLMODEL = null, ALLANALYSIS = null;  // 全部場次合計
+  let curSel = "all";
+  let CURMETA = {};
 
   init();
 
@@ -39,18 +46,16 @@
     try {
       bindToggle();
       bindBench();
+      bindTabs();
       const manifest = await fetchJSON("./data/manifest.json");
-      const opts = [];
-      (manifest.players || []).forEach((p) =>
-        (p.sessions || []).forEach((s) => opts.push(Object.assign({ pid: p.id, pname: p.name, handicap: p.handicap }, s)))
-      );
-      if (!opts.length) return showState("manifest 裡沒有任何場次。在 <b>data/manifest.json</b> 加一筆，並把 CSV 放進 <b>data/</b>。");
-      const sel = document.querySelector("#session-select");
-      sel.innerHTML = opts
-        .map((o, i) => `<option value="${i}">${esc(o.pname)} · ${esc(o.date)}${o.label ? " · " + esc(o.label) : ""}</option>`)
-        .join("");
-      sel.addEventListener("change", () => loadSession(opts[+sel.value]));
-      await loadSession(opts[0]);
+      PLAYERS = (manifest.players || []).filter((p) => (p.sessions || []).length);
+      if (!PLAYERS.length) return showState("manifest 裡沒有任何球員/場次。在 <b>data/manifest.json</b> 加一筆，並把 CSV 放進 <b>data/</b>。");
+      const psel = document.querySelector("#player-select");
+      psel.innerHTML = PLAYERS.map((p, i) => '<option value="' + i + '">' + esc(p.name || p.id) + (p.handicap ? "（差點 " + esc(p.handicap) + "）" : "") + "</option>").join("");
+      psel.addEventListener("change", () => loadPlayer(PLAYERS[+psel.value]));
+      const ssel = document.querySelector("#session-select");
+      ssel.addEventListener("change", () => { curSel = ssel.value === "all" ? "all" : +ssel.value; render(); });
+      await loadPlayer(PLAYERS[0]);
     } catch (e) {
       showState(
         "讀不到 <b>data/manifest.json</b>。<br>這個版本需要用 <b>HTTP 伺服器</b>開啟（雙擊本機檔案不行，瀏覽器會擋）。<br>" +
@@ -60,21 +65,102 @@
     }
   }
 
-  async function loadSession(o) {
+  async function loadPlayer(p) {
+    curPlayer = p;
     showState("讀取中…");
-    let text;
-    try {
-      text = await fetchText("./data/" + o.file);
-    } catch (e) {
-      return showState("讀不到 <b>data/" + esc(o.file) + "</b>，確認檔名與路徑。");
-    }
-    const shots = parseCSV(text);
-    if (!shots.length) return showState("CSV 解析後沒有有效資料列，確認欄位名稱（需要「球桿 / 無坡落點距離-比賽球(碼) / 無坡總距離-比賽球(碼)」等）。");
-    MODEL = buildModel(shots);
-    const analysis = analyze(MODEL);
-    renderAll(MODEL, analysis, o);
+    const loaded = [];
+    await Promise.all((p.sessions || []).map(async (s) => {
+      try {
+        const text = await fetchText("./data/" + s.file);
+        const shots = parseCSV(text);
+        if (shots.length) loaded.push({ meta: s, shots: shots, model: buildModel(shots), analysis: null });
+      } catch (e) { /* 略過讀不到的場次 */ }
+    }));
+    if (!loaded.length) return showState("這位球員的場次都讀不到（確認 <b>data/</b> 下的 CSV 與 manifest 路徑）。");
+    loaded.sort((a, b) => String(b.meta.date || "").localeCompare(String(a.meta.date || "")));
+    loaded.forEach((L) => { L.analysis = analyze(L.model); });
+    LOADED = loaded;
+    const allShots = loaded.reduce((acc, L) => acc.concat(L.shots), []);
+    ALLMODEL = buildModel(allShots);
+    ALLANALYSIS = analyze(ALLMODEL);
+    const ssel = document.querySelector("#session-select");
+    ssel.innerHTML = ['<option value="all">全部場次（合計 ' + loaded.length + " 場）</option>"]
+      .concat(loaded.map((L, i) => '<option value="' + i + '">' + esc(L.meta.date || "") + (L.meta.label ? " · " + esc(L.meta.label) : "") + "</option>"))
+      .join("");
+    curSel = loaded.length > 1 ? "all" : 0;
+    ssel.value = String(curSel);
     document.querySelector("#state").style.display = "none";
     document.querySelector("#dash").style.display = "block";
+    render();
+  }
+
+  function setCurrent() {
+    if (curSel === "all") {
+      MODEL = ALLMODEL; ANALYSIS = ALLANALYSIS;
+      CURMETA = { label: "全部場次", date: "", equipment: ((curPlayer.sessions || [])[0] || {}).equipment || "", device: "", note: "合計 " + LOADED.length + " 場" };
+    } else {
+      const L = LOADED[curSel]; MODEL = L.model; ANALYSIS = L.analysis; CURMETA = L.meta;
+    }
+  }
+
+  function bindTabs() {
+    document.querySelectorAll("#tabs .tab-button").forEach((b) => { b.onclick = function () { setTab(b.dataset.tab); }; });
+  }
+  function setTab(t) {
+    TAB = t;
+    document.querySelectorAll("#tabs .tab-button").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
+    document.querySelectorAll(".view-panel").forEach((p) => p.classList.toggle("on", p.dataset.panel === t));
+  }
+
+  function render() {
+    setCurrent();
+    renderHeader();
+    renderKpis(MODEL);
+    drawLadder();
+    renderScatter(MODEL);
+    renderCross();
+    renderCards(MODEL);
+    renderDistTable(MODEL);
+    renderFlags(ANALYSIS.findings);
+    renderTakeaways(ANALYSIS.takeaways);
+    renderPro();
+    renderFoot(MODEL);
+    setTab(TAB);
+  }
+
+  function renderHeader() {
+    const M = MODEL;
+    document.querySelector("#h-title").textContent = (curPlayer.name || curPlayer.id || "") + (curSel === "all" ? " · 全部場次" : (CURMETA.label ? " · " + CURMETA.label : (CURMETA.date ? " · " + CURMETA.date : "")));
+    document.querySelector("#h-sub").textContent = (CURMETA.equipment || "") + (CURMETA.equipment && CURMETA.date ? " — " : "") + (curSel === "all" ? "" : (CURMETA.date || ""));
+    document.querySelector("#sel-meta").textContent = (CURMETA.device ? "裝置 " + CURMETA.device + " · " : "") + (CURMETA.note || "");
+    document.querySelector("#m-shots").textContent = M.totals.shots;
+    document.querySelector("#m-used").textContent = M.totals.used;
+    document.querySelector("#m-clubs").textContent = M.order.length;
+    document.querySelector("#m-mis").textContent = Math.round(100 * (1 - M.totals.used / M.totals.shots)) + "%";
+  }
+
+  function renderCross() {
+    const el = document.querySelector("#cross");
+    if (!el) return;
+    let h = '<table class="dtable"><thead><tr><th>場次</th><th>球數</th><th>可用</th><th>失誤率</th><th>最遠桿總距</th><th>7i 落點</th></tr></thead><tbody>';
+    LOADED.forEach((L) => {
+      const m = L.model, lead = m.clubs.D ? "D" : m.order[m.order.length - 1], seven = m.clubs["7i"];
+      h += "<tr><td>" + esc(L.meta.date || "") + (L.meta.label ? " " + esc(L.meta.label) : "") + "</td><td>" + m.totals.shots + "</td><td>" + m.totals.used + "</td><td>" + Math.round(100 * (1 - m.totals.used / m.totals.shots)) + "%</td><td>" + (m.clubs[lead] ? m.clubs[lead].total : "—") + "</td><td>" + (seven ? seven.carry : "—") + "</td></tr>";
+    });
+    h += "</tbody></table>";
+    el.innerHTML = '<div class="tablewrap">' + h + "</div>" +
+      (LOADED.length < 2 ? '<div class="note">目前只有 1 場；多打幾場後這裡會顯示跨場趨勢（距離 / 失誤率 / 方向的變化）。</div>' : '<div class="note">每一列是一場，看跨場的距離與失誤率趨勢。</div>');
+  }
+
+  function renderDistTable(M) {
+    const C = M.clubs;
+    let h = '<table class="dtable"><thead><tr><th>球桿</th><th>落點</th><th>總距離</th><th>範圍</th><th>球速</th><th>出球角</th><th>失誤率</th></tr></thead><tbody>';
+    M.order.forEach((c) => {
+      const o = C[c];
+      h += "<tr><td>" + c + "</td><td>" + o.carry + "</td><td>" + o.total + "</td><td>" + o.carry_min + "–" + o.carry_max + "</td><td>" + o.bs + "</td><td>" + o.launch + "°</td><td>" + o.mishit_rate + "%</td></tr>";
+    });
+    h += "</tbody></table>";
+    document.querySelector("#disttable").innerHTML = '<div class="tablewrap">' + h + "</div>";
   }
 
   // ---------- CSV ----------
@@ -248,26 +334,6 @@
   }
 
   // ---------- 渲染 ----------
-  function renderAll(M, A, sess) {
-    const C = M.clubs;
-    document.querySelector("#h-title").textContent = (sess.pname || "") + (sess.label ? " · " + sess.label : " · 彈道數據");
-    document.querySelector("#h-sub").textContent = (sess.equipment || "") + (sess.equipment ? " — " : "") + (sess.date || "") + (sess.handicap ? "（差點 " + sess.handicap + "）" : "");
-    document.querySelector("#sel-meta").textContent = (sess.device ? "裝置 " + sess.device + " · " : "") + (sess.note || "");
-    document.querySelector("#m-shots").textContent = M.totals.shots;
-    document.querySelector("#m-used").textContent = M.totals.used;
-    document.querySelector("#m-clubs").textContent = M.order.length;
-    document.querySelector("#m-mis").textContent = Math.round(100 * (1 - M.totals.used / M.totals.shots)) + "%";
-
-    renderKpis(M);
-    drawLadder();
-    renderFlags(A.findings);
-    renderCards(M);
-    renderScatter(M);
-    renderTakeaways(A.takeaways);
-    renderPro();
-    renderFoot(M);
-  }
-
   function renderKpis(M) {
     const C = M.clubs, lead = M.order[M.order.length - 1];
     const o = C[lead];
