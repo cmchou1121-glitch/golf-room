@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "updated": "2026-06-24",
+  "units": "yard",
+  "players": [
+    {
+      "id": "tony",
+      "name": "Tony",
+      "handicap": "19+",
+      "sessions": [
+        {
+          "date": "2026-06-23",
+          "file": "tony/2026-06-23.csv",
+          "label": "新球具首戰",
+          "device": "Garmin R10",
+          "equipment": "Titleist T250 鐵組 · TaylorMade Qi35 木桿/混血 · T250 W 48°",
+          "note": "新鐵組第一次上手"
+        }
+      ]
+    }
+  ]
+}
