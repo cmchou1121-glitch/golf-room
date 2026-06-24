@@ -115,10 +115,14 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 .disp-dot{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 5px rgba(0,0,0,.15)}
 .disp-rng{position:absolute;top:50%;height:3px;transform:translateY(-50%);border-radius:2px;opacity:.45}
 .scatter{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 14px;box-shadow:var(--shadow)}
+.deepbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.deepbar label{font-family:'IBM Plex Mono';font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px}
+.deepbar select{min-height:34px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--ink);padding:0 10px;font:inherit;font-weight:700;font-size:13px;min-width:160px}
+.deep-sub{font-size:11.5px;color:var(--muted)}
 .legend{display:flex;gap:16px;font-size:11px;color:var(--muted);margin-top:12px;flex-wrap:wrap}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .dotk{width:9px;height:9px;border-radius:50%;display:inline-block}
-.take{display:flex;flex-direction:column;gap:12px}
+.take{display:flex;flex-direction:column;gap:12px;counter-reset:tk}
 .tk{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px 14px 50px;position:relative;box-shadow:var(--shadow);counter-increment:tk}
 .tk::before{content:counter(tk);position:absolute;left:14px;top:14px;width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-family:'IBM Plex Mono';font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
 .tk.p1{border-color:var(--warn-line)}.tk.p1::before{background:var(--warn);color:#fff}
@@ -138,21 +142,86 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 .ctrl label{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px}
 .ctrl select{min-height:40px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--ink);padding:0 12px;font:inherit;font-weight:700;min-width:170px;width:100%}
 .controls .sel-meta{font-size:11px;color:var(--muted);align-self:center}
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 .tab-button{min-height:46px;border:1px solid var(--line);border-radius:var(--r);background:rgba(255,255,255,.7);color:var(--ink);font:inherit;font-weight:800;cursor:pointer;transition:background .16s,border-color .16s,color .16s}
 .tab-button:hover{border-color:var(--blue)}
 .tab-button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .view-panel{display:none}
 .view-panel.on{display:block}
 .view-panel .sec:first-child{margin-top:14px}
-.tablewrap{width:100%;overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
+.tablewrap{width:100%;min-width:0;overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
 .dtable{width:100%;border-collapse:collapse}
 .dtable th,.dtable td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:12.5px;font-family:'IBM Plex Mono'}
 .dtable th{color:var(--muted);font-weight:700;font-size:11px}
 .dtable th:first-child,.dtable td:first-child{text-align:left}
 .dtable tr:last-child td{border-bottom:none}
 .note{color:var(--muted);font-size:11.5px;margin-top:8px}
-@media(max-width:560px){h1,.sub{max-width:100%}.kpis,.cards{grid-template-columns:1fr 1fr}.dist{min-width:86px;font-size:13px}.persona{width:128px;right:0}.persona-chip{left:14px;right:auto;text-align:left}}
+.trend-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.bag-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.trend-card,.bag-card,.event-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--shadow);min-width:0}
+.trend-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.trend-title,.bag-title,.event-title{font-weight:900;font-size:15px}
+.trend-meta,.bag-meta,.event-meta{color:var(--muted);font-size:11.5px;margin-top:3px;line-height:1.55}
+.trend-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.trend-guide div{border:1px solid var(--line);background:var(--card2);border-radius:var(--r);padding:9px 10px;color:var(--muted);font-size:11.5px;line-height:1.45}
+.trend-guide b{display:block;color:var(--ink);font-size:12px;margin-bottom:2px}
+.trend-pill{font-family:'IBM Plex Mono';font-size:11px;font-weight:800;border-radius:999px;padding:4px 8px;border:1px solid var(--line);white-space:nowrap}
+.trend-pill.good{color:var(--success);background:rgba(31,157,107,.10);border-color:rgba(31,157,107,.35)}
+.trend-pill.bad{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+.trend-pill.flat{color:var(--muted);background:var(--bg2)}
+.mini-bars{display:flex;align-items:end;gap:3px;height:58px;margin:10px 0 4px;padding:0 2px;border-bottom:1px dashed var(--line)}
+.mini-bar{flex:1;min-width:5px;border-radius:3px 3px 0 0;background:linear-gradient(180deg,var(--warn),rgba(232,90,110,.28));opacity:.75}
+.trend-chart{display:block;width:100%;height:auto;min-height:168px;margin:8px 0 12px;background:linear-gradient(180deg,rgba(43,95,227,.04),rgba(255,255,255,0));border:1px solid rgba(43,95,227,.12);border-radius:8px}
+.trend-card .tablewrap{border:none;box-shadow:none;padding:0;background:transparent;border-radius:0}
+.bag-card{display:flex;flex-direction:column;gap:12px}
+.bag-section{border-top:1px solid var(--line);padding-top:10px}
+.bag-section:first-of-type{border-top:none;padding-top:0}
+.bag-section h3{font-size:12px;margin:0 0 8px;color:var(--blue);font-family:'IBM Plex Mono';text-transform:uppercase;letter-spacing:.4px}
+.bag-item{display:grid;grid-template-columns:56px minmax(0,1.4fr) minmax(92px,.9fr);gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid rgba(43,95,227,.10)}
+.bag-item:last-child{border-bottom:none}
+.bag-club{font-family:'IBM Plex Mono';font-weight:800;font-size:13px;white-space:nowrap}
+.bag-head{font-size:12px;font-weight:700;line-height:1.35}
+.bag-shaft,.bag-note{font-size:11.5px;color:var(--muted);line-height:1.45}
+.event-hero{background:linear-gradient(135deg,rgba(43,95,227,.10),rgba(31,157,107,.08)),var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.event-hero h2{font-size:22px;line-height:1.15;margin:0 0 6px;font-weight:900}
+.event-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.event-switch label{font-size:11px;color:var(--muted);font-weight:900;font-family:'IBM Plex Mono';text-transform:uppercase;letter-spacing:.4px}
+.event-switch select{min-width:220px;flex:0 1 360px;border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--ink);padding:8px 10px;font-weight:800}
+.event-switch span{color:var(--muted);font-size:11.5px;line-height:1.45}
+.event-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.event-kpi{border:1px solid var(--line);border-radius:var(--r);background:rgba(255,255,255,.70);padding:10px}
+.event-kpi b{display:block;font-family:'IBM Plex Mono';font-size:17px}
+.event-kpi span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.event-callout{border-left:3px solid var(--warn);background:var(--warn-bg);border-radius:var(--r);padding:12px 13px;font-size:12.5px;line-height:1.6;color:var(--ink);margin-top:10px}
+.event-list{display:grid;gap:10px}
+.event-plan{margin:0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.6}
+.event-plan li{margin:3px 0}
+.course-map{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--shadow)}
+.course-map img{display:block;width:100%;max-height:560px;object-fit:contain;border-radius:8px;background:#f5f8f0}
+.course-map a{color:var(--blue);font-weight:800;text-decoration:none}
+.map-note{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.6}
+.hole-map-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.hole-map{display:grid;grid-template-rows:auto 1fr auto;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px;box-shadow:var(--shadow);min-width:0;color:inherit;text-decoration:none;transition:border-color .16s,transform .16s}
+.hole-map:hover{border-color:var(--blue);transform:translateY(-1px)}
+.hole-map-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:900}
+.hole-map-top span:first-child{font-family:'IBM Plex Mono'}
+.hole-yard,.yard-cell{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-family:'IBM Plex Mono';font-size:10.5px;color:var(--muted);line-height:1.35}
+.hole-yard span,.yard-cell span{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px 6px;background:rgba(255,255,255,.72);white-space:nowrap}
+.hole-yard .yard-main,.yard-cell .yard-main{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg);font-weight:900}
+.hole-map img{width:100%;height:180px;object-fit:contain;background:#f5f8f0;border-radius:7px}
+.hole-map-note{color:var(--muted);font-size:11.5px;line-height:1.45}
+.event-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.par-pill{display:inline-flex;align-items:center;justify-content:center;min-width:54px;border-radius:999px;padding:3px 8px;font-family:'IBM Plex Mono';font-size:11px;font-weight:800;border:1px solid var(--line);white-space:nowrap}
+.par-pill.par3{color:#164dff;background:rgba(43,95,227,.10);border-color:rgba(43,95,227,.35)}
+.par-pill.par4{color:#137b55;background:rgba(31,157,107,.12);border-color:rgba(31,157,107,.34)}
+.par-pill.par5{color:#8a6a12;background:rgba(240,190,90,.24);border-color:rgba(220,170,70,.55)}
+.event-hole-table tr.par3 td:first-child{border-left:3px solid #2b5fe3}
+.event-hole-table tr.par4 td:first-child{border-left:3px solid #1f9d6b}
+.event-hole-table tr.par5 td:first-child{border-left:3px solid #d6a33b}
+.event-sources{color:var(--muted);font-size:11.5px;line-height:1.6;margin-top:12px}
+.event-sources a{color:var(--blue);font-weight:800;text-decoration:none}
+@media(max-width:720px){.hole-map-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){h1,.sub{max-width:100%}.kpis,.cards,.trend-grid,.trend-guide,.bag-grid,.event-kpis,.hole-map-grid{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(2,1fr)}.dist{min-width:86px;font-size:13px}.persona{width:128px;right:0}.persona-chip{left:14px;right:auto;text-align:left}.bag-item{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -186,6 +255,7 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
       <button class="tab-button on" data-tab="data" type="button">數據</button>
       <button class="tab-button" data-tab="clubs" type="button">球桿資訊</button>
       <button class="tab-button" data-tab="coach" type="button">教練建議</button>
+      <button class="tab-button" data-tab="event" type="button">賽事策略</button>
     </div>
 
     <div class="view-panel on" data-panel="data">
@@ -200,9 +270,11 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
       </div>
 
       <div class="sec">
-        <div class="sec-h"><span class="sec-n num">02</span><span class="sec-t" id="scatter-title">最遠桿深入分析</span></div>
-        <div class="sec-d">橫軸＝總距離(碼)，縱軸＝左右偏移。藍＝穩定球，紅＝失誤球。</div>
-        <div class="scatter"><svg id="dsvg" viewBox="0 0 360 240" style="width:100%;height:auto"></svg>
+        <div class="sec-h"><span class="sec-n num">02</span><span class="sec-t" id="scatter-title">球桿深入分析</span></div>
+        <div class="sec-d">橫軸＝總距離(碼)，縱軸＝左右偏移。可看全部球桿，也可指定單支球桿；藍＝穩定球，紅＝失誤球。</div>
+        <div class="scatter">
+          <div class="deepbar"><label for="deep-club-select">分析球桿</label><select id="deep-club-select"></select><span class="deep-sub" id="deep-sub"></span></div>
+          <svg id="dsvg" viewBox="0 0 360 240" style="width:100%;height:auto"></svg>
           <div class="legend"><span><i class="dotk" style="background:var(--blue)"></i>穩定球</span><span><i class="dotk" style="background:var(--warn)"></i>失誤球</span><span><i class="dotk" style="background:var(--lt)"></i>左 / <i class="dotk" style="background:var(--rt)"></i>右</span></div>
         </div>
       </div>
@@ -212,17 +284,29 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
         <div class="sec-d">同一位球員每一場的關鍵數據對照（總數據選「全部場次」、單日選日期）。</div>
         <div id="cross"></div>
       </div>
+
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/golf-cat-ip/cat-alert-analyst.png?v=4" alt=""><span class="sec-n num">04</span><span class="sec-t">穩定性趨勢</span></div>
+        <div class="sec-d">失誤率越低代表越穩定。整體用近三場資料，每支球桿用最近五次出現加權平均判讀升降。</div>
+        <div id="stability"></div>
+      </div>
     </div>
 
     <div class="view-panel" data-panel="clubs">
       <div class="sec">
-        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-practice-buddy.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">各球桿明細</span></div>
+        <div class="sec-h"><img class="sec-cat" src="./assets/golf-cat-ip/cat-data-maintenance.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">球袋資訊</span></div>
+        <div class="sec-d">目前球袋與舊資料球袋對照。2026-06-23 起是新鐵桿組，舊資料使用 Callaway 舊鐵桿與 Kirkland 56° SW。</div>
+        <div id="bagprofiles"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-practice-buddy.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">各球桿明細</span></div>
         <div class="sec-d">大數字＝穩定球平均落點。下方迷你軸：中線為目標，點＝平均偏移，淡條＝離散範圍。</div>
         <div class="cards" id="cards"></div>
       </div>
 
       <div class="sec">
-        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-green-marker.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">桿距總表</span></div>
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-green-marker.png?v=4" alt=""><span class="sec-n num">03</span><span class="sec-t">桿距總表</span></div>
         <div class="sec-d">每支桿的落點 / 總距離 / 範圍 / 球速 / 出球角 / 失誤率一覽。</div>
         <div id="disttable"></div>
       </div>
@@ -230,20 +314,34 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 
     <div class="view-panel" data-panel="coach">
       <div class="sec">
-        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-outlier-alert.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">關鍵訊號（自動分析）</span></div>
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-curious-caddie.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">長期教練建議（自動）</span></div>
+        <div class="sec-d">用全部歷史紀錄的近三場穩定性、每支球桿趨勢、方向偏移與東華風險自動產生；CSV 更新後會跟著重算。</div>
+        <div class="take" id="longcoach"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-outlier-alert.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">關鍵訊號（自動分析）</span></div>
         <div class="sec-d">由數據自動判讀：距離梯反序/重疊/缺口、方向系統性偏移、失誤率偏高的桿。</div>
         <div class="flags" id="flags"></div>
       </div>
 
       <div class="sec">
-        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-curious-caddie.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">教練重點．優先順序</span></div>
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-data-watcher.png?v=4" alt=""><span class="sec-n num">03</span><span class="sec-t">本次選取場次重點</span></div>
         <div class="take" id="take"></div>
       </div>
 
       <div class="sec">
-        <div class="sec-h"><span class="sec-n num">03</span><span class="sec-t">名人標準 · 世界前十名選手</span></div>
+        <div class="sec-h"><span class="sec-n num">04</span><span class="sec-t">名人標準 · 世界前十名選手</span></div>
         <div class="sec-d">職業選手的開球距離與球速，當作對標的天花板參考。</div>
         <div class="pro" id="pro"></div>
+      </div>
+    </div>
+
+    <div class="view-panel" data-panel="event">
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/golf-cat-ip/cat-benchmark-scout.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">賽事策略</span></div>
+        <div class="sec-d">2026-07-16 東華菁英：梯台選擇、右 OB 風險、逐洞目標與賽前三週訓練計畫。</div>
+        <div id="eventplan"></div>
       </div>
     </div>
 
@@ -251,6 +349,6 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
   </div>
 
 </div>
-<script src="./app.js?v=5"></script>
+<script src="./app.js?v=8"></script>
 </body>
 </html>
