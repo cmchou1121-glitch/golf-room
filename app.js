@@ -44,6 +44,9 @@
 
   async function init() {
     try {
+      if (!document.querySelector("#player-select") || !document.querySelector("#tabs")) {
+        return showState("頁面版本不一致：偵測到舊版 <b>index.html</b>。請把最新的 <b>index.html</b> 與 <b>app.js</b> 一起上傳到 GitHub（兩個檔必須同一版）。");
+      }
       bindToggle();
       bindBench();
       bindTabs();

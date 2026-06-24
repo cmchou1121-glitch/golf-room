@@ -132,6 +132,26 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 .pro td.num{font-family:'IBM Plex Mono';font-weight:600}
 .pro-wrap{width:100%;overflow-x:auto}
 .foot{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted2);font-size:11px;line-height:1.7}
+.controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
+.ctrl{display:flex;flex-direction:column;gap:5px}
+.ctrl.grow{flex:1}
+.ctrl label{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px}
+.ctrl select{min-height:40px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--ink);padding:0 12px;font:inherit;font-weight:700;min-width:170px;width:100%}
+.controls .sel-meta{font-size:11px;color:var(--muted);align-self:center}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.tab-button{min-height:46px;border:1px solid var(--line);border-radius:var(--r);background:rgba(255,255,255,.7);color:var(--ink);font:inherit;font-weight:800;cursor:pointer;transition:background .16s,border-color .16s,color .16s}
+.tab-button:hover{border-color:var(--blue)}
+.tab-button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.view-panel{display:none}
+.view-panel.on{display:block}
+.view-panel .sec:first-child{margin-top:14px}
+.tablewrap{width:100%;overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
+.dtable{width:100%;border-collapse:collapse}
+.dtable th,.dtable td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:12.5px;font-family:'IBM Plex Mono'}
+.dtable th{color:var(--muted);font-weight:700;font-size:11px}
+.dtable th:first-child,.dtable td:first-child{text-align:left}
+.dtable tr:last-child td{border-bottom:none}
+.note{color:var(--muted);font-size:11.5px;margin-top:8px}
 @media(max-width:560px){h1,.sub{max-width:100%}.kpis,.cards{grid-template-columns:1fr 1fr}.dist{min-width:86px;font-size:13px}.persona{width:128px;right:0}.persona-chip{left:14px;right:auto;text-align:left}}
 </style>
 </head>
@@ -153,60 +173,84 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
     <div class="persona-chip"><span>分析中</span><strong>資料球僮</strong></div>
   </div>
 
-  <div class="selector">
-    <label for="session-select">球員 / 場次</label>
-    <select id="session-select"></select>
+  <div class="controls">
+    <div class="ctrl"><label for="player-select">球員</label><select id="player-select"></select></div>
+    <div class="ctrl grow"><label for="session-select">場次</label><select id="session-select"></select></div>
     <span class="sel-meta" id="sel-meta"></span>
   </div>
 
   <div id="state" class="statebox" style="display:none"></div>
 
   <div id="dash" style="display:none">
-    <div class="sec"><div class="kpis" id="kpis"></div></div>
-
-    <div class="sec">
-      <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-green-marker.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">距離階梯與 Gapping</span></div>
-      <div class="sec-d">穩定球平均（無坡 · 比賽球）。實心＝落點(carry)，淡色延伸＝滾動到總距離。依球袋順序排列，距離沒拉開或反序會直接標出來。</div>
-      <div class="toggle" id="tg"><button data-m="both" class="on">落點＋滾動</button><button data-m="carry">只看落點</button><button data-m="total">只看總距離</button></div>
-      <div class="benchbar"><label for="bench-select">對標基準</label><select id="bench-select"></select><span class="bench-sub" id="bench-sub"></span></div>
-      <div class="ladder" id="ladder"></div>
+    <div class="tabs" id="tabs">
+      <button class="tab-button on" data-tab="data" type="button">數據</button>
+      <button class="tab-button" data-tab="clubs" type="button">球桿資訊</button>
+      <button class="tab-button" data-tab="coach" type="button">教練建議</button>
     </div>
 
-    <div class="sec">
-      <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-outlier-alert.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">關鍵訊號（自動分析）</span></div>
-      <div class="sec-d">以下由本場數據自動判讀：距離梯反序/重疊/缺口、方向系統性偏移、失誤率偏高的桿。</div>
-      <div class="flags" id="flags"></div>
-    </div>
+    <div class="view-panel on" data-panel="data">
+      <div class="sec"><div class="kpis" id="kpis"></div></div>
 
-    <div class="sec">
-      <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-data-watcher.png?v=4" alt=""><span class="sec-n num">03</span><span class="sec-t">各球桿明細</span></div>
-      <div class="sec-d">大數字＝穩定球平均落點。下方迷你軸：中線為目標，點＝平均偏移，淡條＝離散範圍。</div>
-      <div class="cards" id="cards"></div>
-    </div>
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-green-marker.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">距離階梯與 Gapping</span></div>
+        <div class="sec-d">穩定球平均（無坡 · 比賽球）。實心＝落點(carry)，淡色＝滾動到總距離。依球袋順序排列，距離沒拉開或反序會直接標出來。</div>
+        <div class="toggle" id="tg"><button data-m="both" class="on">落點＋滾動</button><button data-m="carry">只看落點</button><button data-m="total">只看總距離</button></div>
+        <div class="benchbar"><label for="bench-select">對標基準</label><select id="bench-select"></select><span class="bench-sub" id="bench-sub"></span></div>
+        <div class="ladder" id="ladder"></div>
+      </div>
 
-    <div class="sec">
-      <div class="sec-h"><span class="sec-n num">04</span><span class="sec-t" id="scatter-title">最遠桿深入分析</span></div>
-      <div class="sec-d">橫軸＝總距離(碼)，縱軸＝左右偏移。藍＝穩定球，紅＝失誤球。</div>
-      <div class="scatter"><svg id="dsvg" viewBox="0 0 360 240" style="width:100%;height:auto"></svg>
-        <div class="legend"><span><i class="dotk" style="background:var(--blue)"></i>穩定球</span><span><i class="dotk" style="background:var(--warn)"></i>失誤球</span><span><i class="dotk" style="background:var(--lt)"></i>左 / <i class="dotk" style="background:var(--rt)"></i>右</span></div>
+      <div class="sec">
+        <div class="sec-h"><span class="sec-n num">02</span><span class="sec-t" id="scatter-title">最遠桿深入分析</span></div>
+        <div class="sec-d">橫軸＝總距離(碼)，縱軸＝左右偏移。藍＝穩定球，紅＝失誤球。</div>
+        <div class="scatter"><svg id="dsvg" viewBox="0 0 360 240" style="width:100%;height:auto"></svg>
+          <div class="legend"><span><i class="dotk" style="background:var(--blue)"></i>穩定球</span><span><i class="dotk" style="background:var(--warn)"></i>失誤球</span><span><i class="dotk" style="background:var(--lt)"></i>左 / <i class="dotk" style="background:var(--rt)"></i>右</span></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-data-watcher.png?v=4" alt=""><span class="sec-n num">03</span><span class="sec-t">跨場比較</span></div>
+        <div class="sec-d">同一位球員每一場的關鍵數據對照（總數據選「全部場次」、單日選日期）。</div>
+        <div id="cross"></div>
       </div>
     </div>
 
-    <div class="sec">
-      <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-curious-caddie.png?v=4" alt=""><span class="sec-n num">05</span><span class="sec-t">教練重點．優先順序</span></div>
-      <div class="take" id="take"></div>
+    <div class="view-panel" data-panel="clubs">
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-practice-buddy.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">各球桿明細</span></div>
+        <div class="sec-d">大數字＝穩定球平均落點。下方迷你軸：中線為目標，點＝平均偏移，淡條＝離散範圍。</div>
+        <div class="cards" id="cards"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-green-marker.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">桿距總表</span></div>
+        <div class="sec-d">每支桿的落點 / 總距離 / 範圍 / 球速 / 出球角 / 失誤率一覽。</div>
+        <div id="disttable"></div>
+      </div>
     </div>
 
-    <div class="sec">
-      <div class="sec-h"><span class="sec-n num">06</span><span class="sec-t">名人標準 · 世界前十名選手</span></div>
-      <div class="sec-d">職業選手的開球距離與球速，當作對標的天花板參考。</div>
-      <div class="pro" id="pro"></div>
+    <div class="view-panel" data-panel="coach">
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-outlier-alert.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">關鍵訊號（自動分析）</span></div>
+        <div class="sec-d">由數據自動判讀：距離梯反序/重疊/缺口、方向系統性偏移、失誤率偏高的桿。</div>
+        <div class="flags" id="flags"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-curious-caddie.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">教練重點．優先順序</span></div>
+        <div class="take" id="take"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><span class="sec-n num">03</span><span class="sec-t">名人標準 · 世界前十名選手</span></div>
+        <div class="sec-d">職業選手的開球距離與球速，當作對標的天花板參考。</div>
+        <div class="pro" id="pro"></div>
+      </div>
     </div>
 
     <div class="foot" id="foot"></div>
   </div>
 
 </div>
-<script src="./app.js?v=4"></script>
+<script src="./app.js?v=5"></script>
 </body>
 </html>
