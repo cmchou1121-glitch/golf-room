@@ -74,6 +74,16 @@
   let TAB = "data";
   let EVENT_INDEX = 0;
   let AVATAR_STYLE = readAvatarStyle();
+  let UI_THEME = readTheme();
+  let TARGET_DISTANCE = 150;
+  let RECENT_DISTANCES = readRecentDistances();
+  let PINNED_DISTANCES = readPinnedDistances();
+  let CONFIDENCE_VIEW = readConfidenceView();
+  let CONFIDENCE_MODE = readConfidenceMode();
+  let PLAYING_ADJUST = readPlayingAdjust();
+  let PIN_POSITION = readPinPosition();
+  let BALL_LIE = readBallLie();
+  let HAZARD_SIDE = readHazardSide();
   let PLAYERS = [];
   let COACH_RULES = { rules: [], fallbackPractice: [] };
   let curPlayer = null;
@@ -92,6 +102,8 @@
       bindToggle();
       bindBench();
       bindTabs();
+      applyTheme(UI_THEME);
+      bindTheme();
       bindAvatarStyle();
       const manifest = await fetchJSON("./data/manifest.json");
       await hydrateTargetEvents(manifest);
@@ -157,6 +169,7 @@
       document.querySelector("#session-select").innerHTML = '<option value="">尚無場次</option>';
       document.querySelector("#sel-meta").textContent = "尚未匯入 CSV";
       renderPlayerProfile(p, []);
+      renderFieldDock();
       return showState("這位球員目前還沒有 CSV 場次。把檔案放進 <b>data/" + esc(p.id || "") + "/</b>，並更新 <b>data/manifest.json</b> 後，就會顯示在這裡。");
     }
     const loaded = [];
@@ -208,6 +221,36 @@
       renderPlayerProfile(curPlayer, LOADED);
     });
   }
+  function bindTheme() {
+    const sel = document.querySelector("#theme-select");
+    if (!sel) return;
+    sel.value = UI_THEME;
+    sel.addEventListener("change", () => {
+      UI_THEME = normalizeTheme(sel.value);
+      applyTheme(UI_THEME);
+      saveTheme(UI_THEME);
+    });
+    bindSystemThemeWatcher();
+  }
+  function applyTheme(v) {
+    const actual = actualTheme(v);
+    document.body.dataset.theme = actual;
+    document.body.dataset.themeMode = normalizeTheme(v);
+    const meta = document.querySelector("#theme-color");
+    if (meta) meta.setAttribute("content", actual === "dark" ? "#07100f" : "#f4f7f2");
+    const current = document.querySelector("#theme-current");
+    if (current) current.textContent = themeStatusText(v, actual);
+    updateThemeStatusBar(v, actual);
+  }
+
+  function updateThemeStatusBar(v, actual) {
+    const el = document.querySelector("#theme-status-bar");
+    if (!el) return;
+    const mode = normalizeTheme(v);
+    const label = actual === "dark" ? "科技黑" : "科技白";
+    const source = mode === "auto" ? "自動跟隨系統，目前使用 " + label : mode === "dark" ? "夜間高對比資料視圖" : "白天高對比資料視圖";
+    el.innerHTML = '<span>' + esc(mode === "auto" ? "AUTO" : "MODE") + '</span><b>' + esc(label) + '</b><small>' + esc(source) + "</small>";
+  }
   function setTab(t) {
     TAB = t;
     document.querySelectorAll("#tabs .tab-button").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
@@ -225,6 +268,8 @@
     renderStabilityTrends();
     renderBagProfiles();
     renderActionCenter();
+    renderConfidenceCard();
+    renderFieldDock();
     renderLongCoach();
     renderCards(MODEL);
     renderDistTable(MODEL);
@@ -615,25 +660,1290 @@
 
   function renderActionCenter() {
     const el = document.querySelector("#actioncenter");
-    if (!el) return;
+    const home = document.querySelector("#homeaction");
+    if (!el && !home) return;
     if (!LOADED.length || !ALLMODEL || !ALLANALYSIS) {
-      el.innerHTML = '<div class="statebox">匯入 CSV 後會自動產生本週練習優先順序。</div>';
+      const empty = '<div class="statebox">匯入 CSV 後會自動產生本週練習優先順序。</div>';
+      if (el) el.innerHTML = empty;
+      if (home) home.innerHTML = empty;
       return;
     }
     const data = buildActionCenter();
+    if (home) home.innerHTML = actionCenterHTML(data, true);
+    if (el) el.innerHTML = actionCenterHTML(data, false);
+  }
+
+  function actionCenterHTML(data, compact) {
     const priority = data.priority;
     let h = '<div class="action-grid"><div class="action-hero ' + esc(priority.cls) + '">';
     h += '<div class="action-eyebrow">' + esc(priority.category || "Action Center") + '</div>';
     h += '<div class="action-title">' + esc(priority.title) + "</div>";
     h += '<div class="action-body">' + esc(priority.body) + "</div>";
     h += '<div class="action-metrics"><span>近三場失誤率 <b>' + pct(data.metrics.latestRate) + '</b></span><span>優先桿 <b>' + esc(data.metrics.club || "—") + '</b></span><span>目標賽事 <b>' + esc(data.metrics.event || "—") + '</b></span></div>';
+    if (compact) {
+      h += decisionGridHTML(data);
+      h += "</div></div>";
+      return h;
+    }
     h += '</div><div class="action-side"><div class="action-side-title">本週 3 件事</div>';
     data.practice.forEach((item, i) => {
       h += '<div class="action-task"><span class="num">' + (i + 1) + "</span><p>" + esc(item) + "</p></div>";
     });
     h += "</div></div>";
     h += '<div class="action-event"><b>' + esc(data.event.title) + "</b><span>" + esc(data.event.body) + "</span></div>";
-    el.innerHTML = h;
+    return h;
+  }
+
+  function decisionGridHTML(data) {
+    const cards = [
+      { cls: data.priority.cls === "urgent" ? "warn" : "good", t: "目前狀態", b: "近三場失誤率 " + pct(data.metrics.latestRate) + "，" + (data.metrics.trend || "持續累積樣本") },
+      { cls: data.metrics.club ? "warn" : "", t: "最大問題", b: data.metrics.club ? "先處理 " + data.metrics.club + " 的穩定性" : "目前沒有單支球桿樣本異常" },
+      { cls: "", t: "下一步", b: (data.practice && data.practice[0]) || "固定熱身流程，先建立可重複性" },
+    ];
+    return '<div class="decision-grid">' + cards.map((c) => '<div class="decision-card ' + c.cls + '"><b>' + esc(c.t) + '</b><span>' + esc(c.b) + "</span></div>").join("") + "</div>";
+  }
+
+  function renderConfidenceCard() {
+    const el = document.querySelector("#confidence-card");
+    if (!el) return;
+    if (!MODEL || !MODEL.order.length) {
+      el.innerHTML = '<div class="statebox">匯入球桿距離資料後，會自動建立拿桿建議。</div>';
+      return;
+    }
+    const pin = confidencePinPositions().find((p) => p.id === PIN_POSITION) || confidencePinPositions()[1];
+    const lie = confidenceLieOptions().find((l) => l.id === BALL_LIE) || confidenceLieOptions()[0];
+    const hazard = confidenceHazardOptions().find((h) => h.id === HAZARD_SIDE) || confidenceHazardOptions()[0];
+    const playDistance = clamp(TARGET_DISTANCE + PLAYING_ADJUST + pin.adjust, 1, 320);
+    const data = confidenceData(MODEL, playDistance, CONFIDENCE_MODE, BALL_LIE, HAZARD_SIDE);
+    const main = data.main;
+    const alt = data.alt;
+    const command = confidenceCommand(main, CONFIDENCE_MODE, PLAYING_ADJUST, pin, lie, hazard);
+    el.innerHTML =
+      '<div class="confidence confidence-view-' + esc(CONFIDENCE_VIEW) + '"><div class="confidence-top"><div class="confidence-copy"><b>剩餘 ' + TARGET_DISTANCE + ' 碼進攻' + (PLAYING_ADJUST || pin.adjust ? " → 實戰 " + playDistance + " 碼" : "") + '</b><span>以穩定球 carry 判斷，不追極限距離；差點高時優先選擇「可重複打到」的桿。</span></div>' +
+      '<label class="confidence-input"><input id="target-distance" type="number" min="' + data.min + '" max="' + data.max + '" step="1" value="' + TARGET_DISTANCE + '"><span>碼</span></label></div>' +
+      '<input class="confidence-range" id="target-distance-range" type="range" min="' + data.min + '" max="' + data.max + '" step="1" value="' + TARGET_DISTANCE + '">' +
+      '<div class="confidence-view-toggle">' + confidenceViewOptions().map((v) => '<button type="button" data-view="' + v.id + '" class="' + (v.id === CONFIDENCE_VIEW ? "on" : "") + '">' + esc(v.label) + "</button>").join("") + "</div>" +
+      '<div class="confidence-presets">' + confidencePresets().map((p) => '<button type="button" data-preset="' + p.id + '" class="' + (p.id === activeConfidencePreset() ? "active" : "") + '" title="' + esc(p.note) + '">' + esc(p.label) + "</button>").join("") + "</div>" +
+      '<div class="confidence-preset-note">' + esc(confidencePresetNote()) + "</div>" +
+      '<div class="confidence-scenarios">' + confidenceScenarios().map((s) => '<button type="button" data-scenario="' + s.id + '" class="' + (s.id === activeConfidenceScenario() ? "active" : "") + '" title="' + esc(s.note) + '"><b>' + esc(s.label) + '</b><span>' + esc(s.short) + '</span></button>').join("") + "</div>" +
+      '<div class="confidence-scenario-note">' + esc(confidenceScenarioNote()) + "</div>" +
+      '<div class="confidence-mode">' + confidenceModes().map((m) => '<button type="button" data-mode="' + m.id + '" class="' + (m.id === CONFIDENCE_MODE ? "on" : "") + '">' + esc(m.label) + "</button>").join("") + "</div>" +
+      '<div class="confidence-adjust">' + confidenceAdjustments().map((a) => '<button type="button" data-adjust="' + a.v + '" class="' + (a.v === PLAYING_ADJUST ? "on" : "") + '">' + esc(a.label) + "</button>").join("") + "</div>" +
+      '<div class="confidence-pin">' + confidencePinPositions().map((p) => '<button type="button" data-pin="' + p.id + '" class="' + (p.id === PIN_POSITION ? "on" : "") + '">' + esc(p.label) + "</button>").join("") + "</div>" +
+      '<div class="confidence-lie">' + confidenceLieOptions().map((l) => '<button type="button" data-lie="' + l.id + '" class="' + (l.id === BALL_LIE ? "on" : "") + '">' + esc(l.label) + "</button>").join("") + "</div>" +
+      '<div class="confidence-hazard">' + confidenceHazardOptions().map((h) => '<button type="button" data-hazard="' + h.id + '" class="' + (h.id === HAZARD_SIDE ? "on" : "") + '">' + esc(h.label) + "</button>").join("") + "</div>" +
+      '<div class="confidence-toolrow"><span class="confidence-context">' + esc(confidenceContextText(pin, lie, hazard)) + '</span><button class="confidence-reset" type="button">回到預設</button></div>' +
+      '<div class="confidence-quick">' + data.quick.map((q) => '<button type="button" data-distance="' + q + '" class="' + (q === TARGET_DISTANCE ? "on" : "") + '">' + q + "y</button>").join("") + "</div>" +
+      confidencePinnedHTML(data.min, data.max, CONFIDENCE_MODE, BALL_LIE, HAZARD_SIDE) +
+      confidenceRecentHTML(data.min, data.max) +
+      '<div class="confidence-command" data-command="' + esc(command) + '"><b>Caddie Call</b><span>' + esc(command) + '</span><button class="confidence-copy-call" type="button">複製</button></div>' +
+      confidenceNoteHTML(main, alt, playDistance, hazard, pin) +
+      confidenceDashboardHTML(main, playDistance) +
+      confidenceNextShotHTML(main, alt, playDistance, hazard, pin) +
+      confidenceDistanceBandHTML(main, alt, playDistance) +
+      confidenceBriefHTML(main, playDistance) +
+      confidenceWindowHTML(main, playDistance) +
+      confidenceBudgetHTML(main, playDistance) +
+      confidenceLightHTML(main) +
+      confidenceAimHTML(main) +
+      confidenceLandingHTML(main, playDistance, hazard, pin) +
+      '<div class="confidence-picks"><div class="confidence-main"><b>首選進攻桿</b><strong>' + esc(main.club) + '</strong><span>' + esc(main.reason) + '</span>' + confidenceScoreHTML(main) + confidenceMicroHTML(main) + '<i class="confidence-pill ' + main.confidence.cls + '">' + esc(main.confidence.label) + '</i></div>' +
+      '<div class="confidence-alt"><b>保守備用</b><span>' + esc(alt ? alt.club + "：" + alt.reason : "目前沒有合適備用桿；先用短一支桿保守上球道。") + '</span></div></div>' +
+      confidenceTradeoffHTML(main, alt, playDistance) +
+      confidenceCompareHTML(data.candidates) +
+      confidenceLadderHTML(data.ladder) +
+      confidencePocketHTML(data.pocket) +
+      '<div class="confidence-plan"><b>' + esc(main.plan.title) + '</b><span>' + esc(main.plan.body) + '</span></div>' +
+      '<div class="confidence-checks">' + main.checks.map((c) => '<div class="confidence-check"><b>' + esc(c.t) + '</b><span>' + esc(c.b) + '</span></div>').join("") + "</div>" +
+      '<div class="confidence-matrix">' + data.matrix.map((m) => '<button class="confidence-tile ' + m.cls + '" type="button" data-distance="' + m.distance + '"><b>' + m.distance + 'y</b><strong>' + esc(m.club) + '</strong><span>' + esc(m.gapText) + ' · 信心 ' + m.score + "/100</span></button>").join("") + "</div>" +
+      '<div class="confidence-bands">' + data.bands.map((b) => '<span class="confidence-band">' + esc(b.club) + " " + b.low + "-" + b.high + "y</span>").join("") + "</div></div>";
+    bindConfidenceInputs();
+    renderFieldDock();
+  }
+
+  function bindConfidenceInputs() {
+    const input = document.querySelector("#target-distance");
+    const range = document.querySelector("#target-distance-range");
+    const update = (v, remember) => {
+      const n = clamp(Math.round(Number(v) || TARGET_DISTANCE), Number(input.min), Number(input.max));
+      if (remember) rememberRecentDistance(n, Number(input.min), Number(input.max));
+      if (n === TARGET_DISTANCE) return;
+      TARGET_DISTANCE = n;
+      renderConfidenceCard();
+    };
+    if (input) input.addEventListener("change", () => update(input.value, true));
+    if (range) input.addEventListener("input", () => { if (range) range.value = input.value; });
+    if (range) range.addEventListener("input", () => update(range.value, false));
+    if (range) range.addEventListener("change", () => update(range.value, true));
+    document.querySelectorAll(".confidence-quick button").forEach((b) => {
+      b.addEventListener("click", () => update(b.dataset.distance, true));
+    });
+    document.querySelectorAll(".confidence-view-toggle button").forEach((b) => {
+      b.addEventListener("click", () => {
+        CONFIDENCE_VIEW = normalizeConfidenceView(b.dataset.view);
+        saveConfidenceView(CONFIDENCE_VIEW);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".confidence-tile,.confidence-ladder-row,.confidence-pocket-card,.confidence-recent button[data-distance],.confidence-pinned button[data-distance]").forEach((b) => {
+      b.addEventListener("click", () => update(b.dataset.distance, true));
+    });
+    const clearRecent = document.querySelector(".confidence-recent-clear");
+    if (clearRecent) clearRecent.addEventListener("click", () => { clearRecentDistances(); renderConfidenceCard(); });
+    const pinDistance = document.querySelector(".confidence-pin-distance");
+    if (pinDistance) pinDistance.addEventListener("click", () => { togglePinnedDistance(TARGET_DISTANCE, Number(input.min), Number(input.max)); renderConfidenceCard(); });
+    document.querySelectorAll(".confidence-presets button").forEach((b) => {
+      b.addEventListener("click", () => {
+        applyConfidencePreset(b.dataset.preset);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".confidence-scenarios button").forEach((b) => {
+      b.addEventListener("click", () => {
+        applyConfidenceScenario(b.dataset.scenario);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".confidence-mode button").forEach((b) => {
+      b.addEventListener("click", () => {
+        CONFIDENCE_MODE = normalizeConfidenceMode(b.dataset.mode);
+        saveConfidenceMode(CONFIDENCE_MODE);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".confidence-adjust button").forEach((b) => {
+      b.addEventListener("click", () => {
+        PLAYING_ADJUST = clamp(Math.round(Number(b.dataset.adjust) || 0), -20, 20);
+        savePlayingAdjust(PLAYING_ADJUST);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".confidence-pin button").forEach((b) => {
+      b.addEventListener("click", () => {
+        PIN_POSITION = normalizePinPosition(b.dataset.pin);
+        savePinPosition(PIN_POSITION);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".confidence-lie button").forEach((b) => {
+      b.addEventListener("click", () => {
+        BALL_LIE = normalizeLie(b.dataset.lie);
+        saveBallLie(BALL_LIE);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".confidence-hazard button").forEach((b) => {
+      b.addEventListener("click", () => {
+        HAZARD_SIDE = normalizeHazardSide(b.dataset.hazard);
+        saveHazardSide(HAZARD_SIDE);
+        renderConfidenceCard();
+      });
+    });
+    const copy = document.querySelector(".confidence-copy-call");
+    if (copy) {
+      copy.addEventListener("click", () => copyConfidenceCommand(copy));
+    }
+    const noteCopy = document.querySelector(".confidence-note-copy");
+    if (noteCopy) {
+      noteCopy.addEventListener("click", () => copyConfidenceNote(noteCopy));
+    }
+    const reset = document.querySelector(".confidence-reset");
+    if (reset) {
+      reset.addEventListener("click", () => {
+        applyConfidencePreset("reset");
+        renderConfidenceCard();
+      });
+    }
+  }
+
+  async function copyConfidenceCommand(button) {
+    const box = button && button.closest(".confidence-command");
+    const text = box ? box.dataset.command || "" : "";
+    if (!text) return;
+    try {
+      await writeClipboardText(text);
+      button.textContent = "已複製";
+      button.classList.add("done");
+      setTimeout(() => {
+        button.textContent = "複製";
+        button.classList.remove("done");
+      }, 1200);
+    } catch (e) {
+      selectConfidenceCommand(box);
+      button.textContent = "已選取";
+      setTimeout(() => { button.textContent = "複製"; }, 1200);
+    }
+  }
+
+  async function copyConfidenceNote(button) {
+    const box = button && button.closest(".confidence-note");
+    const text = box ? box.dataset.note || "" : "";
+    if (!text) return;
+    try {
+      await writeClipboardText(text);
+      button.textContent = "已複製";
+      button.classList.add("done");
+      setTimeout(() => {
+        button.textContent = "複製口令";
+        button.classList.remove("done");
+      }, 1200);
+    } catch (e) {
+      button.textContent = "失敗";
+      setTimeout(() => { button.textContent = "複製口令"; }, 1200);
+    }
+  }
+
+  function selectConfidenceCommand(box) {
+    const text = box && box.querySelector("span");
+    if (!text || !window.getSelection || !document.createRange) return;
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  async function writeClipboardText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (e) { /* fallback below */ }
+    }
+    const t = document.createElement("textarea");
+    t.value = text;
+    t.setAttribute("readonly", "");
+    t.style.position = "fixed";
+    t.style.left = "-9999px";
+    t.style.top = "0";
+    document.body.appendChild(t);
+    t.focus();
+    t.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(t);
+    if (!ok) throw new Error("copy failed");
+  }
+
+  function renderFieldDock() {
+    const el = document.querySelector("#field-dock");
+    if (!el) return;
+    if (!MODEL || !MODEL.order || !MODEL.order.length) {
+      el.classList.remove("show");
+      el.innerHTML = "";
+      return;
+    }
+    const pin = confidencePinPositions().find((p) => p.id === PIN_POSITION) || confidencePinPositions()[1];
+    const lie = confidenceLieOptions().find((l) => l.id === BALL_LIE) || confidenceLieOptions()[0];
+    const hazard = confidenceHazardOptions().find((h) => h.id === HAZARD_SIDE) || confidenceHazardOptions()[0];
+    const playDistance = clamp(TARGET_DISTANCE + PLAYING_ADJUST + pin.adjust, 1, 320);
+    const data = confidenceData(MODEL, playDistance, CONFIDENCE_MODE, BALL_LIE, HAZARD_SIDE);
+    const main = data.main;
+    if (!main || main.club === "—") {
+      el.classList.remove("show");
+      el.innerHTML = "";
+      return;
+    }
+    const command = confidenceCommand(main, CONFIDENCE_MODE, PLAYING_ADJUST, pin, lie, hazard);
+    const light = confidenceTrafficLight(main);
+    const brief = confidenceBriefParts(main, playDistance);
+    const context = [
+      light.label,
+      brief.aim,
+      brief.miss,
+      pin.id === "middle" ? "" : pin.label.replace(" -5", "").replace(" +5", ""),
+      lie.id === "fairway" ? "" : lie.label,
+      hazard.id === "none" ? "" : hazard.label,
+      PLAYING_ADJUST ? (PLAYING_ADJUST > 0 ? "+" : "") + PLAYING_ADJUST + "y" : "",
+    ].filter(Boolean).join(" · ");
+    el.innerHTML =
+      '<div class="field-dock-inner">' +
+        '<button class="field-dock-main" type="button" data-dock-focus="confidence">' +
+          '<span>' + playDistance + 'y</span><b>拿 ' + esc(main.club) + '｜信心 ' + (main.confidence.score || 0) + '/100</b><small>' + esc(context) + '</small>' +
+        '</button>' +
+        '<div class="field-dock-actions">' +
+          '<button type="button" data-dock-step="-5">-5</button>' +
+          '<button type="button" data-dock-step="5">+5</button>' +
+          '<button class="primary" type="button" data-dock-copy="' + esc(command) + '">複製</button>' +
+        '</div>' +
+      '</div>';
+    el.classList.add("show");
+    bindFieldDock(data);
+  }
+
+  function bindFieldDock(data) {
+    const focus = document.querySelector('[data-dock-focus="confidence"]');
+    if (focus) {
+      focus.addEventListener("click", () => {
+        setTab("data");
+        const card = document.querySelector("#confidence-card");
+        if (card && card.scrollIntoView) card.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+    document.querySelectorAll("[data-dock-step]").forEach((b) => {
+      b.addEventListener("click", () => {
+        const step = Math.round(Number(b.dataset.dockStep) || 0);
+        TARGET_DISTANCE = clamp(TARGET_DISTANCE + step, data.min || 30, data.max || 260);
+        rememberRecentDistance(TARGET_DISTANCE, data.min || 30, data.max || 260);
+        renderConfidenceCard();
+      });
+    });
+    const copy = document.querySelector("[data-dock-copy]");
+    if (copy) {
+      copy.addEventListener("click", async () => {
+        const text = copy.dataset.dockCopy || "";
+        if (!text) return;
+        try {
+          await writeClipboardText(text);
+          copy.textContent = "已複製";
+          copy.classList.add("done");
+          setTimeout(() => {
+            copy.textContent = "複製";
+            copy.classList.remove("done");
+          }, 1200);
+        } catch (e) {
+          copy.textContent = "失敗";
+          setTimeout(() => { copy.textContent = "複製"; }, 1200);
+        }
+      });
+    }
+  }
+
+  function confidenceData(M, target, mode, lie, hazard) {
+    mode = normalizeConfidenceMode(mode);
+    lie = normalizeLie(lie);
+    hazard = normalizeHazardSide(hazard);
+    const rows = confidenceRows(M, target, mode, lie, hazard);
+    if (!rows.length) {
+      return {
+        min: 30,
+        max: 240,
+        main: { club: "—", confidence: { cls: "low", label: "資料不足", score: 0 }, metrics: [], reason: "目前沒有足夠的穩定球距離可判斷。", plan: { title: "先保守", body: "沒有資料時不要硬攻旗桿，選能安全前進的桿。" }, checks: fallbackConfidenceChecks() },
+        alt: null,
+        quick: [80, 100, 120, 140, 150, 170],
+        matrix: [],
+        ladder: [],
+        pocket: [],
+        bands: [],
+      };
+    }
+    const min = Math.max(30, Math.min.apply(null, rows.map((r) => r.low)) - 10);
+    const max = Math.max.apply(null, rows.map((r) => r.high)) + 10;
+    const main = rows[0] || { club: "—", o: {}, low: 0, high: 0, diff: 0 };
+    const alt = rows.find((r) => r.club !== main.club && r.o.carry <= main.o.carry) || rows.find((r) => r.club !== main.club) || null;
+    const quick = confidenceQuickDistances(rows, min, max);
+    return {
+      min,
+      max,
+      main: confidencePick(main, target, true, mode),
+      alt: alt ? confidencePick(alt, target, false, mode) : null,
+      quick,
+      candidates: rows.slice(0, 3).map((r, i) => confidenceCandidate(r, target, mode, i === 0)),
+      matrix: confidenceMatrix(M, mode, quick, lie, hazard),
+      ladder: confidenceDecisionLadder(M, mode, quick, lie, hazard),
+      pocket: confidencePocketCards(M, mode, lie, hazard),
+      bands: rows.slice().sort((a, b) => b.o.carry - a.o.carry).map((r) => ({ club: r.club, low: r.low, high: r.high })),
+    };
+  }
+
+  function confidenceRows(M, target, mode, lie, hazard) {
+    mode = normalizeConfidenceMode(mode);
+    lie = normalizeLie(lie);
+    hazard = normalizeHazardSide(hazard);
+    return M.order
+      .filter((c) => M.clubs[c] && M.clubs[c].carry > 0)
+      .map((c) => {
+        const o = M.clubs[c];
+        const rawSpan = Math.round((o.carry_max - o.carry_min) / 2);
+        const span = clamp(Math.max(5, Math.round(o.total_std || rawSpan || 8)), 6, 16);
+        const low = Math.max(1, Math.round(o.carry - span));
+        const high = Math.round(o.carry + span);
+        const diff = Math.abs(o.carry - target);
+        const inBand = target >= low && target <= high;
+        const isWood = !!WOODS[c];
+        const woodPenalty = isWood && target < 170 ? (c === "3H" ? 8 : 28) : isWood && target < 195 ? 10 : 0;
+        const risk = Math.max(0, o.mishit_rate || 0) + (o.n_used < 6 ? 18 : 0);
+        const gap = o.carry - target;
+        const modePenalty = confidenceModePenalty(mode, gap, risk, isWood, target);
+        const liePenalty = confidenceLiePenalty(lie, c, isWood, target);
+        const hazardPenalty = confidenceHazardPenalty(hazard, gap, o);
+        return { club: c, o, low, high, diff, inBand, score: diff + risk * 0.35 + woodPenalty + modePenalty + liePenalty + hazardPenalty + (inBand ? -5 : 0), mode };
+      })
+      .sort((a, b) => a.score - b.score);
+  }
+
+  function confidenceMatrix(M, mode, distances, lie, hazard) {
+    return distances.slice(0, 8).map((d) => {
+      const row = confidenceRows(M, d, mode, lie, hazard)[0];
+      if (!row) return { distance: d, club: "—", score: 0, cls: "low", gapText: "資料不足" };
+      const pick = confidencePick(row, d, true, mode);
+      return { distance: d, club: pick.club, score: pick.confidence.score || 0, cls: pick.confidence.cls || "low", gapText: confidenceGapText(row.o.carry - d) };
+    });
+  }
+
+  function confidenceDecisionLadder(M, mode, distances, lie, hazard) {
+    return distances.slice(0, 8).map((d) => {
+      const rows = confidenceRows(M, d, mode, lie, hazard);
+      const main = rows[0];
+      const alt = rows.find((r) => main && r.club !== main.club && r.o.carry <= main.o.carry) || rows.find((r) => main && r.club !== main.club) || null;
+      if (!main) return { distance: d, club: "—", alt: "—", light: { cls: "stop", label: "LAY" }, gap: "資料不足", room: "—", aim: "—" };
+      const pick = confidencePick(main, d, true, mode);
+      const light = confidenceTrafficLight(pick);
+      const room = confidenceBudgetParts(pick, d).find((p) => p.label === "總容錯");
+      return {
+        distance: d,
+        club: pick.club,
+        alt: alt ? alt.club : "—",
+        light,
+        gap: confidenceGapText(Math.round(main.o.carry - d)),
+        room: room ? room.value : "—",
+        aim: pick.aim ? pick.aim.label : "瞄中間",
+      };
+    });
+  }
+
+  function confidenceLadderHTML(rows) {
+    rows = rows || [];
+    if (!rows.length) return "";
+    return '<div class="confidence-ladder"><div class="confidence-ladder-title"><b>距離階梯拿桿帶</b><span>快速掃碼數：首選 / 備用 / 進攻燈號</span></div>' +
+      rows.map((r) =>
+        '<button class="confidence-ladder-row" type="button" data-distance="' + r.distance + '">' +
+          '<span class="confidence-ladder-distance">' + r.distance + 'y</span>' +
+          '<strong>' + esc(r.club) + '</strong>' +
+          '<small>備 ' + esc(r.alt) + ' · ' + esc(r.gap) + ' · 容錯 ' + esc(r.room) + ' · ' + esc(r.aim) + '</small>' +
+          '<i class="' + esc(r.light.cls) + '">' + esc(r.light.label) + '</i>' +
+        '</button>'
+      ).join("") + "</div>";
+  }
+
+  function confidencePocketCards(M, mode, lie, hazard) {
+    const baseRows = confidenceRows(M, 150, mode, lie, hazard);
+    if (!baseRows.length) return [];
+    const ranges = confidencePocketRanges(baseRows);
+    return ranges.map((r) => {
+      const mid = Math.round((r.low + r.high) / 2);
+      const rows = confidenceRows(M, mid, mode, lie, hazard);
+      const main = rows[0];
+      const alt = rows.find((x) => main && x.club !== main.club && x.o.carry <= main.o.carry) || rows.find((x) => main && x.club !== main.club) || null;
+      if (!main) return null;
+      const pick = confidencePick(main, mid, true, mode);
+      const light = confidenceTrafficLight(pick);
+      const budget = confidenceBudgetParts(pick, mid).find((p) => p.label === "總容錯");
+      return {
+        low: r.low,
+        high: r.high,
+        mid,
+        club: pick.club,
+        alt: alt ? alt.club : "—",
+        light,
+        score: pick.confidence.score || 0,
+        room: budget ? budget.value : "—",
+        tip: confidencePocketTip(pick, light, r),
+      };
+    }).filter(Boolean);
+  }
+
+  function confidencePocketRanges(rows) {
+    const lows = rows.map((r) => r.low).filter((v) => Number.isFinite(v));
+    const highs = rows.map((r) => r.high).filter((v) => Number.isFinite(v));
+    const min = Math.max(40, Math.floor((Math.min.apply(null, lows) - 4) / 10) * 10);
+    const max = Math.min(230, Math.ceil((Math.max.apply(null, highs) + 4) / 10) * 10);
+    const ranges = [];
+    for (let low = min; low < max; low += 20) {
+      ranges.push({ low, high: Math.min(max, low + 20) });
+    }
+    return ranges.slice(0, 8);
+  }
+
+  function confidencePocketTip(pick, light, range) {
+    if (!pick || !pick.aim) return "目標放安全區，不硬攻旗";
+    if (light.cls === "go") return pick.aim.call + "，正常節奏";
+    if (light.cls === "caution") return "只打到 " + range.low + "-" + range.high + "y 的中間，不追旗";
+    return "LAY：先安全推進，留下一桿好切";
+  }
+
+  function confidencePocketHTML(cards) {
+    cards = cards || [];
+    if (!cards.length) return "";
+    return '<div class="confidence-pocket"><div class="confidence-pocket-title"><b>口袋距離卡</b><span>不用輸入，直接看區間拿桿</span></div><div class="confidence-pocket-grid">' +
+      cards.map((c) =>
+        '<button class="confidence-pocket-card" type="button" data-distance="' + c.mid + '">' +
+          '<span>' + c.low + "-" + c.high + 'y</span><strong>' + esc(c.club) + '</strong>' +
+          '<small>備 ' + esc(c.alt) + ' · 信心 ' + c.score + ' · 容錯 ' + esc(c.room) + '</small>' +
+          '<i class="' + esc(c.light.cls) + '">' + esc(c.light.label) + '</i><em>' + esc(c.tip) + '</em>' +
+        '</button>'
+      ).join("") + "</div></div>";
+  }
+
+  function confidencePick(r, target, primary, mode) {
+    const c = confidenceLevel(r);
+    const gap = Math.round(r.o.carry - target);
+    const direction = gap === 0 ? "剛好對到目標距離" : gap > 0 ? "平均會多 " + gap + " 碼" : "平均會短 " + Math.abs(gap) + " 碼";
+    const sample = "採用 " + (r.o.n_used || 0) + "/" + (r.o.n_total || 0) + " 球，失誤率 " + (r.o.mishit_rate || 0) + "%";
+    return {
+      club: r.club,
+      confidence: c,
+      metrics: confidenceMetrics(r, target),
+      plan: confidencePlan(r, target, c, mode),
+      checks: confidenceChecks(r, target, mode),
+      aim: confidenceAimAdvice(r, mode),
+      window: { low: r.low, high: r.high },
+      reason: (primary ? direction + "；" : "") + "信心區間 " + r.low + "-" + r.high + " 碼，" + sample + "。",
+    };
+  }
+
+  function confidenceCandidate(r, target, mode, best) {
+    const pick = confidencePick(r, target, true, mode);
+    return {
+      club: r.club,
+      best,
+      score: pick.confidence.score || 0,
+      cls: pick.confidence.cls || "low",
+      gap: confidenceGapText(Math.round(r.o.carry - target)),
+      miss: (r.o.mishit_rate || 0) + "%",
+      sample: (r.o.n_used || 0) + "/" + (r.o.n_total || 0),
+      band: r.low + "-" + r.high + "y",
+      aim: confidenceAimAdvice(r, mode).label,
+    };
+  }
+
+  function confidenceCompareHTML(rows) {
+    rows = rows || [];
+    if (!rows.length) return "";
+    return '<div class="confidence-compare">' + rows.map((r) =>
+      '<div class="confidence-compare-row ' + (r.best ? "best" : "") + '"><b>' + esc(r.club) + '</b><span>' +
+      esc(r.gap + " · " + r.aim + " · 區間 " + r.band + " · 失誤 " + r.miss + " · 樣本 " + r.sample) +
+      '</span><strong>' + esc(String(r.score)) + '/100</strong></div>'
+    ).join("") + "</div>";
+  }
+
+  function confidenceNoteHTML(main, alt, target, hazard, pin) {
+    if (!main || main.club === "—") return "";
+    const note = confidenceNoteParts(main, alt, target, hazard, pin);
+    const text = note.lines.join("｜");
+    return '<div class="confidence-note" data-note="' + esc(text) + '"><div class="confidence-note-head"><b>一口令卡</b><button class="confidence-note-copy" type="button">複製口令</button></div>' +
+      '<div class="confidence-note-line"><strong>' + esc(note.club) + '</strong><span>' + esc(note.call) + '</span></div>' +
+      '<div class="confidence-note-grid">' + note.items.map((it) => '<div><b>' + esc(it.t) + '</b><span>' + esc(it.b) + '</span></div>').join("") + "</div></div>";
+  }
+
+  function confidenceNoteParts(main, alt, target, hazard, pin) {
+    const light = confidenceTrafficLight(main);
+    const landing = confidenceLandingPlan(main, target, hazard, pin);
+    const aim = (main.aim && main.aim.call) || "瞄中間";
+    const budget = confidenceBudgetParts(main, target).find((p) => p.label === "總容錯") || { value: "—" };
+    const miss = landing.items.find((it) => it.cls === "accept") || { body: "接受安全 miss" };
+    const avoid = landing.items.find((it) => it.cls === "avoid") || { body: "避開短邊" };
+    const altText = alt && alt.club ? alt.club : "無";
+    const club = target + "y｜拿 " + main.club + "｜" + light.label;
+    const call = aim + "；容錯 " + budget.value + "；備用 " + altText;
+    return {
+      club,
+      call,
+      items: [
+        { t: "目標", b: landing.summary },
+        { t: "避開", b: avoid.body },
+        { t: "可接受", b: miss.body },
+      ],
+      lines: [club, call, "避開：" + avoid.body, "可接受：" + miss.body],
+    };
+  }
+
+  function confidenceRecentHTML(min, max) {
+    const recent = (RECENT_DISTANCES || []).filter((d) => d >= min && d <= max).slice(0, 6);
+    if (!recent.length) return "";
+    return '<div class="confidence-recent"><div class="confidence-recent-head"><b>最近碼數</b><button class="confidence-recent-clear" type="button">清除</button></div>' +
+      '<div class="confidence-recent-list">' + recent.map((d) => '<button type="button" data-distance="' + d + '" class="' + (d === TARGET_DISTANCE ? "on" : "") + '">' + d + "y</button>").join("") + "</div></div>";
+  }
+
+  function confidencePinnedHTML(min, max, mode, lie, hazard) {
+    const pinned = (PINNED_DISTANCES || []).filter((d) => d >= min && d <= max).slice(0, 8);
+    const on = pinned.indexOf(TARGET_DISTANCE) >= 0;
+    const context = confidencePinnedContext(mode, lie, hazard);
+    return '<div class="confidence-pinned"><div class="confidence-pinned-head"><b>固定碼數</b><button class="confidence-pin-distance ' + (on ? "on" : "") + '" type="button">' + (on ? "取消釘選" : "釘選目前") + '</button></div>' +
+      '<div class="confidence-pinned-sub">' + esc(context) + '</div>' +
+      (pinned.length ? '<div class="confidence-pinned-list">' + pinned.map((d) => {
+        const row = MODEL ? confidenceRows(MODEL, d, mode, lie, hazard)[0] : null;
+        const club = row ? row.club : "—";
+        const pick = row ? confidencePick(row, d, true, mode) : null;
+        const light = pick ? confidenceTrafficLight(pick) : { cls: "lay", label: "LAY" };
+        const score = pick && pick.confidence ? pick.confidence.score || 0 : 0;
+        return '<button type="button" data-distance="' + d + '" class="' + (d === TARGET_DISTANCE ? "on" : "") + '"><i class="' + esc(light.cls) + '">' + esc(light.label) + '</i><b>' + d + 'y</b><strong>' + esc(club) + '</strong><em>' + score + '/100</em><u><s style="width:' + clamp(score, 0, 100) + '%"></s></u><span>' + esc(confidenceDistanceTag(d)) + '</span></button>';
+      }).join("") + "</div>" : '<div class="confidence-pinned-empty">把常打距離釘起來，下場可快速切換。</div>') +
+      "</div>";
+  }
+
+  function confidencePinnedContext(mode, lie, hazard) {
+    const m = confidenceModes().find((x) => x.id === normalizeConfidenceMode(mode));
+    const l = confidenceLieOptions().find((x) => x.id === normalizeLie(lie));
+    const h = confidenceHazardOptions().find((x) => x.id === normalizeHazardSide(hazard));
+    return "依目前情境重算：" + [m ? m.label : "標準", l ? l.label : "球道", h && h.id !== "none" ? h.label : ""].filter(Boolean).join(" · ");
+  }
+
+  function confidenceDistanceTag(d) {
+    d = Math.round(Number(d) || 0);
+    if (d < 90) return "切上";
+    if (d < 125) return "短桿";
+    if (d < 155) return "標準";
+    if (d < 185) return "長鐵";
+    return "長攻";
+  }
+
+  function confidenceTradeoffHTML(main, alt, target) {
+    if (!main || !alt) return "";
+    const mainScore = main.confidence ? main.confidence.score || 0 : 0;
+    const altScore = alt.confidence ? alt.confidence.score || 0 : 0;
+    const m = confidenceTradeoffStats(main, target);
+    const a = confidenceTradeoffStats(alt, target);
+    const scoreDiff = mainScore - altScore;
+    const lead = scoreDiff >= 8 ? "首選信心明顯較高" : scoreDiff <= -8 ? "備用其實更保守" : "兩支都可用，看旗位與危險";
+    const body = confidenceTradeoffBody(m, a, scoreDiff);
+    return '<div class="confidence-trade"><div class="confidence-trade-head"><b>拿桿取捨</b><span>' + esc(lead) + '</span></div>' +
+      '<div class="confidence-trade-grid">' +
+        confidenceTradeoffCardHTML("首選", main.club, mainScore, m, true) +
+        confidenceTradeoffCardHTML("備用", alt.club, altScore, a, false) +
+      '</div><div class="confidence-trade-call">' + esc(body) + "</div></div>";
+  }
+
+  function confidenceTradeoffStats(pick, target) {
+    const metrics = (pick && pick.metrics) || [];
+    const gap = metrics.find((m) => m.l === "距離差") || { v: "—" };
+    const miss = metrics.find((m) => m.l === "失誤率") || { v: "—" };
+    const budget = confidenceBudgetParts(pick, target).find((p) => p.label === "總容錯") || { value: "—" };
+    const sample = metrics.find((m) => m.l === "採用球") || { v: "—" };
+    return { gap: gap.v, miss: miss.v, room: budget.value, sample: sample.v };
+  }
+
+  function confidenceTradeoffCardHTML(label, club, score, stats, primary) {
+    return '<div class="confidence-trade-card ' + (primary ? "primary" : "") + '"><span>' + esc(label) + '</span><strong>' + esc(club || "—") + '</strong>' +
+      '<div><b>' + score + '</b><small>信心</small></div><div><b>' + esc(stats.gap) + '</b><small>距離差</small></div><div><b>' + esc(stats.miss) + '</b><small>失誤</small></div><div><b>' + esc(stats.room) + '</b><small>容錯</small></div></div>';
+  }
+
+  function confidenceTradeoffBody(main, alt, scoreDiff) {
+    if (scoreDiff >= 8) return "照首選執行；備用只在短邊危險、風向不確定或想保守上果嶺時使用。";
+    if (scoreDiff <= -8) return "備用信心不差，若旗位很窄或前後有危險，優先考慮備用安全打法。";
+    if (String(main.gap).charAt(0) === "+" && String(alt.gap).charAt(0) !== "+") return "首選偏長、備用偏短；前旗或長邊危險時改備用，中後旗照首選。";
+    if (String(main.gap).charAt(0) !== "+" && String(alt.gap).charAt(0) === "+") return "首選偏短、備用偏長；短邊危險時升到備用，否則照首選留上坡切推。";
+    return "差距不大時以危險區決定：避短選長一點，避長選短一點，目標都放果嶺中間。";
+  }
+
+  function confidenceDashboardHTML(pick, target) {
+    if (!pick || !pick.confidence) return "";
+    const score = pick.confidence.score || 0;
+    const light = confidenceTrafficLight(pick);
+    const metrics = confidenceDashboardMetrics(pick, target);
+    return '<div class="confidence-dash"><div class="confidence-dial ' + esc(light.cls) + '" style="--score:' + clamp(score, 0, 100) + '"><b>' + score + '</b><span>信心</span></div>' +
+      '<div class="confidence-dash-body"><div class="confidence-dash-top"><b>' + esc(light.title) + '</b><i class="' + esc(light.cls) + '">' + esc(light.label) + '</i></div>' +
+      '<div class="confidence-dash-metrics">' + metrics.map((m) => '<span><b>' + esc(m.v) + '</b><small>' + esc(m.l) + '</small></span>').join("") + "</div></div></div>";
+  }
+
+  function confidenceDashboardMetrics(pick, target) {
+    const metrics = (pick && pick.metrics) || [];
+    const gap = metrics.find((m) => m.l === "距離差") || { v: "—", l: "距離差" };
+    const miss = metrics.find((m) => m.l === "失誤率") || { v: "—", l: "失誤率" };
+    const budget = confidenceBudgetParts(pick, target).find((p) => p.label === "總容錯") || { value: "—" };
+    const sample = metrics.find((m) => m.l === "採用球") || { v: "—", l: "採用球" };
+    return [
+      { v: gap.v, l: "距離差" },
+      { v: miss.v, l: "失誤率" },
+      { v: budget.value, l: "總容錯" },
+      { v: sample.v, l: "樣本" },
+    ];
+  }
+
+  function confidenceNextShotHTML(main, alt, target, hazard, pin) {
+    if (!main || main.club === "—") return "";
+    const decision = confidenceNextShotDecision(main, alt, target, hazard, pin);
+    return '<div class="confidence-next ' + esc(decision.cls) + '"><div class="confidence-next-tag">' + esc(decision.tag) + '</div><div class="confidence-next-body"><b>' + esc(decision.title) + '</b><span>' + esc(decision.body) + '</span></div></div>';
+  }
+
+  function confidenceNextShotDecision(main, alt, target, hazard, pin) {
+    const light = confidenceTrafficLight(main);
+    const landing = confidenceLandingPlan(main, target, hazard, pin);
+    const altText = alt && alt.club ? "；備用 " + alt.club : "";
+    if (light.cls === "go") {
+      return {
+        cls: "go",
+        tag: "攻",
+        title: "照首選進攻，但目標只放中間",
+        body: "拿 " + main.club + altText + "。" + landing.summary + "，不要追貼旗。",
+      };
+    }
+    if (light.cls === "caution") {
+      return {
+        cls: "hold",
+        tag: "守",
+        title: "保守進攻，先避開大數字",
+        body: "拿 " + main.club + altText + "。只接受安全 miss；旗位窄或風不穩就改備用。",
+      };
+    }
+    return {
+      cls: "lay",
+      tag: "推",
+      title: "不硬攻，先推進到好切位置",
+      body: alt && alt.club ? "改用 " + alt.club + " 或短一支桿，目標是留下下一桿好角度。" : "選短一支穩定桿，目標是避開危險並留下好切球。",
+    };
+  }
+
+  function confidenceDistanceBandHTML(main, alt, target) {
+    if (!main || !main.window) return "";
+    const band = confidenceDistanceBandParts(main, alt, target);
+    return '<div class="confidence-band-card ' + esc(band.cls) + '">' +
+      '<div class="confidence-band-card-head"><span>' + esc(band.kicker) + '</span><b>' + esc(band.title) + '</b><i>' + esc(band.light) + '</i></div>' +
+      '<div class="confidence-band-card-body"><strong>' + esc(band.clubLine) + '</strong><p>' + esc(band.rule) + '</p></div>' +
+      '<div class="confidence-band-card-grid">' + band.items.map((it) => '<div><b>' + esc(it.v) + '</b><span>' + esc(it.l) + '</span></div>').join("") + '</div>' +
+      '</div>';
+  }
+
+  function confidenceDistanceBandParts(main, alt, target) {
+    const light = confidenceTrafficLight(main);
+    const budget = confidenceBudgetParts(main, target);
+    const total = budget.find((p) => p.label === "總容錯") || { value: "—", cls: "bad" };
+    const short = budget.find((p) => p.label === "短邊空間" || p.label === "平均偏長") || { value: "—" };
+    const long = budget.find((p) => p.label === "長邊空間" || p.label === "距離不足") || { value: "—" };
+    const w = main.window || { low: target, high: target };
+    const score = main.confidence ? main.confidence.score || 0 : 0;
+    const inWindow = target >= w.low && target <= w.high;
+    let cls = "hold";
+    let title = "邊界距離，保守打中間";
+    let rule = "目標放果嶺中間，不追旗；只接受安全側 miss。";
+    if (light.cls === "go" && inWindow && total.cls === "good") {
+      cls = "go";
+      title = "舒適距離，可以照計畫進攻";
+      rule = "正常節奏，瞄安全中線；只有旗位很寬才把目標推近旗。";
+    } else if (light.cls === "stop" || !inWindow || total.cls === "bad") {
+      cls = "lay";
+      title = "降級距離，先避開大數字";
+      rule = alt && alt.club ? "優先考慮備用 " + alt.club + "，目標是留下好切球。" : "短一支穩定桿，先推進到好角度。";
+    }
+    return {
+      cls,
+      kicker: target + "y 距離帶",
+      title,
+      light: light.label,
+      clubLine: "首選 " + main.club + (alt && alt.club ? "｜備用 " + alt.club : ""),
+      rule,
+      items: [
+        { v: w.low + "-" + w.high + "y", l: "信心窗" },
+        { v: total.value, l: "總容錯" },
+        { v: score + "/100", l: "信心分" },
+        { v: short.value + " / " + long.value, l: "短 / 長" },
+      ],
+    };
+  }
+
+  function confidenceBriefHTML(pick, playDistance) {
+    const brief = confidenceBriefParts(pick, playDistance);
+    return '<div class="confidence-brief">' +
+      '<div class="confidence-brief-step"><b>1 Club</b><span>' + esc(brief.club) + '</span></div>' +
+      '<div class="confidence-brief-step"><b>2 Aim</b><span>' + esc(brief.aim) + '</span></div>' +
+      '<div class="confidence-brief-step"><b>3 Miss</b><span>' + esc(brief.miss + " · " + brief.swing) + '</span></div>' +
+      "</div>";
+  }
+
+  function confidenceBriefParts(pick, playDistance) {
+    const checks = (pick && pick.checks) || [];
+    const club = pick && pick.club ? pick.club : "—";
+    return {
+      club: club + " 打 " + playDistance + "y",
+      aim: (pick && pick.aim && pick.aim.call) || "瞄中間",
+      miss: (checks[1] && checks[1].b) || "接受安全 miss",
+      swing: (checks[2] && checks[2].b) || "完整收桿",
+    };
+  }
+
+  function confidenceWindowHTML(pick, target) {
+    if (!pick || !pick.window) return "";
+    const w = pick.window;
+    const lo = Math.max(1, Math.min(w.low, target) - 12);
+    const hi = Math.max(w.high, target) + 12;
+    const span = Math.max(1, hi - lo);
+    const bandLeft = clamp(Math.round((w.low - lo) / span * 100), 0, 100);
+    const bandRight = clamp(Math.round((w.high - lo) / span * 100), 0, 100);
+    const targetLeft = clamp(Math.round((target - lo) / span * 100), 0, 100);
+    return '<div class="confidence-window"><div class="confidence-window-top"><b>信心距離窗</b><span>' + esc(w.low + "-" + w.high + "y｜目標 " + target + "y") + '</span></div>' +
+      '<div class="confidence-ruler"><div class="confidence-ruler-band" style="left:' + bandLeft + '%;width:' + Math.max(4, bandRight - bandLeft) + '%"></div><div class="confidence-ruler-target" style="left:' + targetLeft + '%"></div></div>' +
+      '<div class="confidence-ruler-labels"><span>' + lo + 'y</span><span>' + hi + 'y</span></div></div>';
+  }
+
+  function confidenceBudgetHTML(pick, target) {
+    const parts = confidenceBudgetParts(pick, target);
+    if (!parts.length) return "";
+    return '<div class="confidence-budget"><div class="confidence-budget-title"><b>容錯碼數</b><span>用信心距離窗判斷這支桿可不可以犯錯</span></div>' +
+      '<div class="confidence-budget-grid">' + parts.map((p) =>
+        '<div class="confidence-budget-item ' + esc(p.cls) + '"><b>' + esc(p.value) + '</b><span>' + esc(p.label) + '</span><i>' + esc(p.note) + '</i></div>'
+      ).join("") + "</div></div>";
+  }
+
+  function confidenceBudgetParts(pick, target) {
+    if (!pick || !pick.window) return [];
+    const low = Number(pick.window.low) || target;
+    const high = Number(pick.window.high) || target;
+    const shortRoom = Math.round(target - low);
+    const longRoom = Math.round(high - target);
+    const totalRoom = Math.max(0, Math.round(high - low));
+    const shortHazard = HAZARD_SIDE === "short";
+    const longHazard = HAZARD_SIDE === "long";
+    const shortBad = shortRoom < 0 || (shortHazard && shortRoom < 6);
+    const longBad = longRoom < 0 || (longHazard && longRoom < 6);
+    const shortLabel = shortRoom < 0 ? "平均偏長" : "短邊空間";
+    const longLabel = longRoom < 0 ? "距離不足" : "長邊空間";
+    const shortValue = shortRoom < 0 ? "+" + Math.abs(shortRoom) + "y" : "+" + shortRoom + "y";
+    const longValue = longRoom < 0 ? "-" + Math.abs(longRoom) + "y" : "+" + longRoom + "y";
+    return [
+      {
+        cls: shortBad ? "bad" : shortRoom < 7 ? "warn" : "good",
+        value: shortValue,
+        label: shortLabel,
+        note: shortRoom < 0 ? "這支桿正常落點會過目標" : shortHazard ? "短邊有危險，至少留 6y 以上" : "短了還有多少可接受",
+      },
+      {
+        cls: longBad ? "bad" : longRoom < 7 ? "warn" : "good",
+        value: longValue,
+        label: longLabel,
+        note: longRoom < 0 ? "需要硬打才會到，建議升一支" : longHazard ? "長邊有危險，不要打滿" : "打厚或跳多時的餘裕",
+      },
+      {
+        cls: totalRoom >= 18 ? "good" : totalRoom >= 12 ? "warn" : "bad",
+        value: totalRoom + "y",
+        label: "總容錯",
+        note: confidenceBudgetNote(totalRoom),
+      },
+    ];
+  }
+
+  function confidenceBudgetNote(totalRoom) {
+    if (totalRoom >= 18) return "適合當首選，正常揮桿即可";
+    if (totalRoom >= 12) return "可用，但目標放果嶺中間";
+    return "容錯偏小，優先找備用桿";
+  }
+
+  function confidenceLightHTML(pick) {
+    const light = confidenceTrafficLight(pick);
+    return '<div class="confidence-light"><div class="confidence-light-badge ' + esc(light.cls) + '">' + esc(light.label) + '</div><div><b>' + esc(light.title) + '</b><span>' + esc(light.body) + '</span></div></div>';
+  }
+
+  function confidenceTrafficLight(pick) {
+    const score = pick && pick.confidence ? pick.confidence.score || 0 : 0;
+    const missMetric = ((pick && pick.metrics) || []).find((m) => m.l === "失誤率");
+    const miss = missMetric ? Number(String(missMetric.v).replace("%", "")) || 0 : 0;
+    const gapMetric = ((pick && pick.metrics) || []).find((m) => m.l === "距離差");
+    const gapText = gapMetric ? gapMetric.v : "—";
+    if (score >= 72 && miss <= 25) {
+      return { cls: "go", label: "GO", title: "可以進攻，但目標放中間", body: "信心分與失誤率都在可接受範圍；不要硬攻短邊旗，照 Caddie Call 執行。" };
+    }
+    if (score >= 45 && miss <= 42) {
+      return { cls: "caution", label: "HOLD", title: "保守進攻，接受安全 miss", body: "這球能打，但容錯不大；距離差 " + gapText + "，優先避免飛過或短邊。" };
+    }
+    return { cls: "stop", label: "LAY", title: "先不硬攻，改成推進球", body: "信心分或失誤率不支持強攻；選寬的一側，目標是留下好切球與避免大數字。" };
+  }
+
+  function confidenceAimHTML(pick) {
+    const aim = (pick && pick.aim) || { label: "方向", call: "瞄中間", body: "方向樣本不足，先用標準目標線。" };
+    return '<div class="confidence-aim"><b>' + esc(aim.label) + '</b><span><strong>' + esc(aim.call) + '</strong>｜' + esc(aim.body) + '</span></div>';
+  }
+
+  function confidenceLandingHTML(pick, target, hazard, pin) {
+    if (!pick || !pick.window) return "";
+    const plan = confidenceLandingPlan(pick, target, hazard, pin);
+    return '<div class="confidence-landing"><div class="confidence-landing-title"><b>安全落點指令</b><span>' + esc(plan.summary) + '</span></div>' +
+      '<div class="confidence-landing-grid">' + plan.items.map((it) =>
+        '<div class="confidence-landing-item ' + esc(it.cls) + '"><b>' + esc(it.title) + '</b><span>' + esc(it.body) + '</span></div>'
+      ).join("") + "</div></div>";
+  }
+
+  function confidenceLandingPlan(pick, target, hazard, pin) {
+    hazard = hazard || confidenceHazardOptions()[0];
+    pin = pin || confidencePinPositions()[1];
+    const w = pick.window || { low: target, high: target };
+    const aim = (pick.aim && pick.aim.call) || "瞄中間";
+    const light = confidenceTrafficLight(pick);
+    const landingLow = Math.max(1, Math.min(target, w.low));
+    const landingHigh = Math.max(target, w.high);
+    const avoid = confidenceAvoidText(hazard, pin);
+    const accept = confidenceAcceptMissText(pick, target, hazard);
+    const summary = light.label + "｜" + aim + "｜目標 " + landingLow + "-" + landingHigh + "y";
+    return {
+      summary,
+      items: [
+        { cls: "target", title: "落點目標", body: aim + "，讓球落在 " + landingLow + "-" + landingHigh + "y 區間。" },
+        { cls: "avoid", title: "絕對避開", body: avoid },
+        { cls: "accept", title: "可接受 miss", body: accept },
+      ],
+    };
+  }
+
+  function confidenceAvoidText(hazard, pin) {
+    const h = hazard && hazard.id ? hazard.id : "none";
+    if (h === "left") return "左側 OB / 水池 / 麻煩區，不要用會加深左偏的補償。";
+    if (h === "right") return "右側 OB / 水池 / 麻煩區，寧可左半邊安全落地。";
+    if (h === "short") return "短邊與前方障礙，這球不要短在旗前。";
+    if (h === "long") return "果嶺後方與長邊，這球不要打滿飛過。";
+    if (pin && pin.id === "front") return "前旗短邊，不要貪近旗留下困難切球。";
+    if (pin && pin.id === "back") return "後旗長邊，不要飛過果嶺。";
+    return "短邊旗與窄邊，目標放中間，不追貼旗。";
+  }
+
+  function confidenceAcceptMissText(pick, target, hazard) {
+    const w = pick.window || { low: target, high: target };
+    const gapText = ((pick.metrics || []).find((m) => m.l === "距離差") || {}).v || "—";
+    const h = hazard && hazard.id ? hazard.id : "none";
+    if (h === "short") return "接受長到中間，不能短；距離差 " + gapText + "。";
+    if (h === "long") return "接受短在果嶺前緣，不能飛過；距離差 " + gapText + "。";
+    if (h === "left") return "接受右半邊或中間，不能左漏；信心窗 " + w.low + "-" + w.high + "y。";
+    if (h === "right") return "接受左半邊或中間，不能右漏；信心窗 " + w.low + "-" + w.high + "y。";
+    if (target < w.low) return "這支偏長，接受落在中後段，不要再加速。";
+    if (target > w.high) return "這支偏短，接受短一點，下一桿保留好角度。";
+    return "接受中間偏安全側，避免短邊和大數字。";
+  }
+
+  function confidenceContextText(pin, lie, hazard) {
+    const mode = confidenceModes().find((m) => m.id === CONFIDENCE_MODE) || confidenceModes()[1];
+    hazard = hazard || confidenceHazardOptions()[0];
+    const parts = [mode.label, pin.label, lie.label];
+    if (hazard.id !== "none") parts.push(hazard.label);
+    if (PLAYING_ADJUST) parts.push((PLAYING_ADJUST > 0 ? "+" : "") + PLAYING_ADJUST + "y");
+    return "目前條件：" + parts.join(" · ");
+  }
+
+  function confidenceScoreHTML(pick) {
+    const score = pick && pick.confidence ? pick.confidence.score || 0 : 0;
+    return '<div class="confidence-score"><div class="confidence-score-top"><span>信心分</span><span>' + score + '/100</span></div><div class="confidence-score-track"><div class="confidence-score-fill" style="width:' + clamp(score, 0, 100) + '%"></div></div></div>';
+  }
+
+  function confidenceMicroHTML(pick) {
+    const metrics = (pick && pick.metrics) || [];
+    if (!metrics.length) return "";
+    return '<div class="confidence-micro">' + metrics.map((m) => '<div class="confidence-metric"><b>' + esc(m.v) + '</b><span>' + esc(m.l) + '</span></div>').join("") + "</div>";
+  }
+
+  function confidenceCommand(pick, mode, adjust, pin, lie, hazard) {
+    if (!pick || pick.club === "—") return "資料不足｜先保守推進｜留下好切球";
+    const checks = pick.checks || [];
+    const aim = (pick.aim && pick.aim.call) || (checks[0] && checks[0].b) || "安全側";
+    const swing = (checks[2] && checks[2].b) || "完整收桿";
+    const modeLabel = confidenceModes().find((m) => m.id === normalizeConfidenceMode(mode));
+    pin = pin || confidencePinPositions()[1];
+    lie = lie || confidenceLieOptions()[0];
+    hazard = hazard || confidenceHazardOptions()[0];
+    const adj = adjust ? "｜實戰 " + (adjust > 0 ? "+" : "") + adjust + "y" : "";
+    const pinText = pin.id === "middle" ? "" : "｜" + pin.label.replace(" -5", "").replace(" +5", "");
+    const lieText = lie.id === "fairway" ? "" : "｜" + lie.label;
+    const hazardText = hazard.id === "none" ? "" : "｜避" + hazard.shortLabel;
+    return "拿 " + pick.club + "｜" + (modeLabel ? modeLabel.label : "標準") + pinText + lieText + hazardText + adj + "｜" + aim + "｜" + swing;
+  }
+
+  function confidenceMetrics(r, target) {
+    const gap = Math.round(r.o.carry - target);
+    return [
+      { v: confidenceGapText(gap), l: "距離差" },
+      { v: (r.o.mishit_rate || 0) + "%", l: "失誤率" },
+      { v: (r.o.n_used || 0) + "/" + (r.o.n_total || 0), l: "採用球" },
+    ];
+  }
+
+  function confidenceGapText(gap) {
+    gap = Math.round(gap || 0);
+    if (gap === 0) return "剛好";
+    return (gap > 0 ? "+" : "") + gap + "y";
+  }
+
+  function confidencePlan(r, target, c, mode) {
+    const gap = Math.round(r.o.carry - target);
+    if (mode === "safe") {
+      return { title: "策略：保守避大數字", body: "優先選失誤率低、短邊風險小的打法；寧可短一點，也不要硬攻旗桿。" };
+    }
+    if (mode === "attack") {
+      return { title: "策略：進攻目標區", body: "距離權重大於保守懲罰；只在前方風險可接受時使用，目標仍放果嶺中間。" };
+    }
+    if (c.cls === "high" && Math.abs(gap) <= 4) {
+      return { title: "打法：正常節奏打中間", body: "這支桿接近目標距離，瞄果嶺中間，不需要加速硬打。" };
+    }
+    if (gap > 8) {
+      return { title: "打法：控制揮桿", body: "平均距離偏長，目標放果嶺前半或安全側，避免打滿飛過頭。" };
+    }
+    if (gap < -8) {
+      return { title: "打法：保守上球道", body: "平均距離偏短，除非前方無大風險，否則接受短一點、留下好切球位置。" };
+    }
+    if ((r.o.mishit_rate || 0) >= 35) {
+      return { title: "打法：降風險", body: "失誤率偏高，選寬的一側，不攻短邊旗位；這球的任務是避免大數字。" };
+    }
+    return { title: "打法：標準進攻", body: "距離落在可用區間，先做完整收桿與固定目標線。" };
+  }
+
+  function confidenceModes() {
+    return [
+      { id: "safe", label: "保守" },
+      { id: "standard", label: "標準" },
+      { id: "attack", label: "進攻" },
+    ];
+  }
+
+  function confidenceViewOptions() {
+    return [
+      { id: "compact", label: "精簡" },
+      { id: "full", label: "詳細" },
+    ];
+  }
+
+  function confidencePresets() {
+    return [
+      { id: "reset", label: "標準球位", note: "標準模式、中間旗、球道、無危險邊。" },
+      { id: "safe", label: "避大數字", note: "保守模式，優先避長邊或目前指定危險邊。" },
+      { id: "wind", label: "逆風保守", note: "逆風 +10y、保守模式、短邊視為危險。" },
+      { id: "attackBack", label: "攻後旗", note: "進攻模式、後旗，長邊視為危險。" },
+    ];
+  }
+
+  function activeConfidencePreset() {
+    if (CONFIDENCE_MODE === "safe" && PLAYING_ADJUST === 10 && PIN_POSITION === "middle" && BALL_LIE === "fairway" && HAZARD_SIDE === "short") return "wind";
+    if (CONFIDENCE_MODE === "attack" && PLAYING_ADJUST === 0 && PIN_POSITION === "back" && BALL_LIE === "fairway" && HAZARD_SIDE === "long") return "attackBack";
+    if (CONFIDENCE_MODE === "safe" && PLAYING_ADJUST === 0 && PIN_POSITION === "middle" && BALL_LIE === "fairway") return "safe";
+    if (CONFIDENCE_MODE === "standard" && PLAYING_ADJUST === 0 && PIN_POSITION === "middle" && BALL_LIE === "fairway" && HAZARD_SIDE === "none") return "reset";
+    return "";
+  }
+
+  function confidencePresetNote() {
+    const id = activeConfidencePreset();
+    const p = confidencePresets().find((x) => x.id === id);
+    if (p) return "策略包：" + p.label + "｜" + p.note;
+    return "策略包：自訂｜目前條件已手動調整，推薦會依所有選項即時計算。";
+  }
+
+  function applyConfidencePreset(id) {
+    if (id === "safe") {
+      CONFIDENCE_MODE = "safe";
+      PLAYING_ADJUST = 0;
+      PIN_POSITION = "middle";
+      BALL_LIE = "fairway";
+      HAZARD_SIDE = HAZARD_SIDE === "none" ? "long" : HAZARD_SIDE;
+    } else if (id === "wind") {
+      CONFIDENCE_MODE = "safe";
+      PLAYING_ADJUST = 10;
+      PIN_POSITION = "middle";
+      BALL_LIE = "fairway";
+      HAZARD_SIDE = "short";
+    } else if (id === "attackBack") {
+      CONFIDENCE_MODE = "attack";
+      PLAYING_ADJUST = 0;
+      PIN_POSITION = "back";
+      BALL_LIE = "fairway";
+      HAZARD_SIDE = "long";
+    } else {
+      CONFIDENCE_MODE = "standard";
+      PLAYING_ADJUST = 0;
+      PIN_POSITION = "middle";
+      BALL_LIE = "fairway";
+      HAZARD_SIDE = "none";
+    }
+    saveConfidenceMode(CONFIDENCE_MODE);
+    savePlayingAdjust(PLAYING_ADJUST);
+    savePinPosition(PIN_POSITION);
+    saveBallLie(BALL_LIE);
+    saveHazardSide(HAZARD_SIDE);
+  }
+
+  function confidenceScenarios() {
+    return [
+      { id: "center", label: "中間安全", short: "標準", note: "中間旗、球道、無明顯危險，照標準推薦。", mode: "standard", adjust: 0, pin: "middle", lie: "fairway", hazard: "none" },
+      { id: "front", label: "前旗", short: "別短邊", note: "前旗時短邊 miss 最麻煩，推薦會略保守避短。", mode: "safe", adjust: -5, pin: "front", lie: "fairway", hazard: "short" },
+      { id: "back", label: "後旗", short: "別飛過", note: "後旗時長邊危險，推薦會避免打滿飛過頭。", mode: "standard", adjust: 5, pin: "back", lie: "fairway", hazard: "long" },
+      { id: "rough", label: "長草", short: "降風險", note: "長草球位不追極限距離，優先選穩定與容錯。", mode: "safe", adjust: 0, pin: "middle", lie: "rough", hazard: "none" },
+      { id: "right", label: "右危", short: "避右", note: "右側 OB、水池或大麻煩時，推薦會懲罰右偏傾向。", mode: "safe", adjust: 0, pin: "middle", lie: "fairway", hazard: "right" },
+      { id: "left", label: "左危", short: "避左", note: "左側 OB、水池或大麻煩時，推薦會懲罰左偏傾向。", mode: "safe", adjust: 0, pin: "middle", lie: "fairway", hazard: "left" },
+    ];
+  }
+
+  function activeConfidenceScenario() {
+    const match = confidenceScenarios().find((s) =>
+      s.mode === CONFIDENCE_MODE &&
+      s.adjust === PLAYING_ADJUST &&
+      s.pin === PIN_POSITION &&
+      s.lie === BALL_LIE &&
+      s.hazard === HAZARD_SIDE
+    );
+    return match ? match.id : "";
+  }
+
+  function confidenceScenarioNote() {
+    const s = confidenceScenarios().find((x) => x.id === activeConfidenceScenario());
+    if (s) return "球場情境：" + s.label + "｜" + s.note;
+    return "球場情境：自訂｜可以用下面的風、旗位、球位與危險邊微調。";
+  }
+
+  function applyConfidenceScenario(id) {
+    const s = confidenceScenarios().find((x) => x.id === id) || confidenceScenarios()[0];
+    CONFIDENCE_MODE = s.mode;
+    PLAYING_ADJUST = s.adjust;
+    PIN_POSITION = s.pin;
+    BALL_LIE = s.lie;
+    HAZARD_SIDE = s.hazard;
+    saveConfidenceMode(CONFIDENCE_MODE);
+    savePlayingAdjust(PLAYING_ADJUST);
+    savePinPosition(PIN_POSITION);
+    saveBallLie(BALL_LIE);
+    saveHazardSide(HAZARD_SIDE);
+  }
+
+  function confidenceAdjustments() {
+    return [
+      { v: -10, label: "順風 -10" },
+      { v: -5, label: "微短 -5" },
+      { v: 0, label: "正常" },
+      { v: 5, label: "微長 +5" },
+      { v: 10, label: "逆風 +10" },
+    ];
+  }
+
+  function confidencePinPositions() {
+    return [
+      { id: "front", label: "前旗 -5", adjust: -5 },
+      { id: "middle", label: "中間", adjust: 0 },
+      { id: "back", label: "後旗 +5", adjust: 5 },
+    ];
+  }
+
+  function normalizePinPosition(v) {
+    return v === "front" || v === "back" ? v : "middle";
+  }
+
+  function confidenceLieOptions() {
+    return [
+      { id: "fairway", label: "球道" },
+      { id: "rough", label: "長草" },
+      { id: "tee", label: "架 Tee" },
+    ];
+  }
+
+  function normalizeLie(v) {
+    return v === "rough" || v === "tee" ? v : "fairway";
+  }
+
+  function confidenceHazardOptions() {
+    return [
+      { id: "none", label: "無危險", shortLabel: "危險" },
+      { id: "left", label: "左危", shortLabel: "左邊" },
+      { id: "right", label: "右危", shortLabel: "右邊" },
+      { id: "short", label: "短危", shortLabel: "短邊" },
+      { id: "long", label: "長危", shortLabel: "長邊" },
+    ];
+  }
+
+  function normalizeHazardSide(v) {
+    return v === "left" || v === "right" || v === "short" || v === "long" ? v : "none";
+  }
+
+  function normalizeConfidenceMode(v) {
+    return v === "safe" || v === "attack" ? v : "standard";
+  }
+
+  function normalizeConfidenceView(v) {
+    return v === "full" ? "full" : "compact";
+  }
+
+  function confidenceModePenalty(mode, gap, risk, isWood, target) {
+    if (mode === "safe") {
+      const longPenalty = gap > 0 ? Math.min(24, gap * 0.75) : 0;
+      const tooShortPenalty = gap < -18 ? Math.min(16, Math.abs(gap + 18) * 0.4) : 0;
+      const woodRisk = isWood && target < 185 ? 8 : 0;
+      return longPenalty + tooShortPenalty + risk * 0.25 + woodRisk;
+    }
+    if (mode === "attack") {
+      const shortPenalty = gap < 0 ? Math.min(18, Math.abs(gap) * 0.5) : 0;
+      const longPenalty = gap > 14 ? Math.min(10, (gap - 14) * 0.35) : 0;
+      return shortPenalty + longPenalty - Math.min(10, risk * 0.12);
+    }
+    return 0;
+  }
+
+  function confidenceLiePenalty(lie, club, isWood, target) {
+    lie = normalizeLie(lie);
+    if (lie === "rough") {
+      if (isWood && club !== "3H") return target < 190 ? 34 : 22;
+      if (isWood) return 12;
+      return 4;
+    }
+    if (lie === "tee") {
+      if (isWood) return -8;
+      return 0;
+    }
+    return 0;
+  }
+
+  function confidenceHazardPenalty(hazard, gap, o) {
+    hazard = normalizeHazardSide(hazard);
+    if (hazard === "none") return 0;
+    if (hazard === "short") return gap < 0 ? Math.min(28, Math.abs(gap) * 0.9 + 8) : 0;
+    if (hazard === "long") return gap > 0 ? Math.min(28, gap * 0.9 + 8) : 0;
+    const left = o.n_left || 0;
+    const right = o.n_right || 0;
+    const mean = o.off_mean || 0;
+    if (hazard === "left") {
+      const leftBias = left > right ? Math.min(18, (left - right) * 3) : 0;
+      return Math.max(0, leftBias + (mean < -1 ? Math.min(12, Math.abs(mean) * 2) : 0));
+    }
+    if (hazard === "right") {
+      const rightBias = right > left ? Math.min(18, (right - left) * 3) : 0;
+      return Math.max(0, rightBias + (mean > 1 ? Math.min(12, mean * 2) : 0));
+    }
+    return 0;
+  }
+
+  function confidenceQuickDistances(rows, min, max) {
+    const candidates = [80, 100, 120, 140, 150, 160, 170, 190, 210]
+      .concat(rows.map((r) => Math.round(r.o.carry / 10) * 10))
+      .filter((v) => v >= min && v <= max);
+    const out = [];
+    candidates.forEach((v) => {
+      if (out.indexOf(v) < 0) out.push(v);
+    });
+    return out.sort((a, b) => a - b).slice(0, 10);
+  }
+
+  function confidenceLevel(r) {
+    const sample = (r.o.n_used || 0) >= 12 ? 8 : (r.o.n_used || 0) >= 6 ? 2 : -10;
+    const miss = Math.max(0, r.o.mishit_rate || 0);
+    const score = clamp(Math.round(92 - r.diff * 3 - miss * 0.9 + sample), 5, 98);
+    if (score >= 72 && r.diff <= 6 && miss <= 25) return { cls: "high", label: "高信心", score };
+    if (score >= 45 && r.diff <= 14 && miss <= 42) return { cls: "mid", label: "可用但保守", score };
+    return { cls: "low", label: "低信心，降一級策略", score };
+  }
+
+  function confidenceChecks(r, target, mode) {
+    const gap = Math.round(r.o.carry - target);
+    const aim = mode === "attack" ? "果嶺中間" : mode === "safe" ? "安全側" : "中間偏安全";
+    const miss = gap > 8 ? "接受短一點" : gap < -8 ? "不硬加速" : "不要短邊";
+    const swing = (r.o.mishit_rate || 0) >= 35 ? "七成節奏" : "完整收桿";
+    return [
+      { t: "瞄準", b: aim },
+      { t: "容錯", b: miss },
+      { t: "揮桿", b: swing },
+    ];
+  }
+
+  function confidenceAimAdvice(r, mode) {
+    const o = r && r.o ? r.o : {};
+    const left = o.n_left || 0;
+    const right = o.n_right || 0;
+    const center = o.n_center || 0;
+    const total = left + right + center;
+    const mean = o.off_mean || 0;
+    if (total < 6) {
+      return { label: "方向樣本", call: mode === "attack" ? "瞄果嶺中間" : "瞄安全側", body: "方向樣本不足，先不要用補償打法，選寬的一側。" };
+    }
+    if (right >= left * 1.6 && right - left >= 3 && mean >= 1) {
+      return { label: "常偏右", call: "瞄左半邊", body: "穩定球方向 " + left + "L:" + right + "R，平均 " + fmtOff(mean) + "；用左半邊留右 miss 空間。" };
+    }
+    if (left >= right * 1.6 && left - right >= 3 && mean <= -1) {
+      return { label: "常偏左", call: "瞄右半邊", body: "穩定球方向 " + left + "L:" + right + "R，平均 " + fmtOff(mean) + "；用右半邊留左 miss 空間。" };
+    }
+    return { label: "方向均衡", call: mode === "attack" ? "瞄果嶺中間" : "瞄中間偏安全", body: "穩定球方向 " + left + "L:" + right + "R，平均 " + fmtOff(mean) + "；主要管理距離與短邊。" };
+  }
+
+  function fallbackConfidenceChecks() {
+    return [
+      { t: "瞄準", b: "安全側" },
+      { t: "容錯", b: "留好切球" },
+      { t: "揮桿", b: "不硬打" },
+    ];
   }
 
   function buildActionCenter() {
@@ -667,6 +1977,7 @@
         latestRate: latest.rate,
         club: club ? club.club : "",
         event: event ? (event.course || event.title || "") : "",
+        trend: trend ? trend.label + (trend.delta != null ? " " + signedPct(trend.delta) : "") : "",
       },
     };
   }
@@ -1340,6 +2651,11 @@
     el.innerHTML = html;
     el.style.display = "block";
     document.querySelector("#dash").style.display = "none";
+    const dock = document.querySelector("#field-dock");
+    if (dock) {
+      dock.classList.remove("show");
+      dock.innerHTML = "";
+    }
   }
   async function fetchJSON(u) { const r = await fetch(u, { cache: "no-store" }); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }
   async function fetchText(u) { const r = await fetch(u, { cache: "no-store" }); if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }
@@ -1350,6 +2666,33 @@
   function r1(x) { return Math.round(x * 10) / 10; }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function fmtOff(v) { const r = Math.round(v * 10) / 10; return r === 0 ? "0" : Math.abs(r) + (r < 0 ? "L" : "R"); }
+  function normalizeTheme(v) {
+    return v === "light" || v === "dark" ? v : "auto";
+  }
+  function systemPrefersDark() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+  function actualTheme(v) {
+    v = normalizeTheme(v);
+    if (v === "auto") return systemPrefersDark() ? "dark" : "light";
+    return v;
+  }
+  function themeStatusText(v, actual) {
+    v = normalizeTheme(v);
+    actual = actual || actualTheme(v);
+    if (v === "auto") return actual === "dark" ? "自動：科技黑" : "自動：科技白";
+    return actual === "dark" ? "科技黑" : "科技白";
+  }
+  function bindSystemThemeWatcher() {
+    if (!window.matchMedia || bindSystemThemeWatcher.bound) return;
+    bindSystemThemeWatcher.bound = true;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => {
+      if (UI_THEME === "auto") applyTheme(UI_THEME);
+    };
+    if (mq.addEventListener) mq.addEventListener("change", update);
+    else if (mq.addListener) mq.addListener(update);
+  }
   function readAvatarStyle() {
     try {
       const v = localStorage.getItem("golfRoomAvatarStyle");
@@ -1358,9 +2701,136 @@
       return "cute";
     }
   }
+  function readTheme() {
+    try {
+      const v = localStorage.getItem("golfRoomTheme");
+      return normalizeTheme(v);
+    } catch (e) {
+      return "auto";
+    }
+  }
+  function readConfidenceView() {
+    try {
+      return normalizeConfidenceView(localStorage.getItem("golfRoomConfidenceView"));
+    } catch (e) {
+      return "compact";
+    }
+  }
+  function readConfidenceMode() {
+    try {
+      return normalizeConfidenceMode(localStorage.getItem("golfRoomConfidenceMode"));
+    } catch (e) {
+      return "standard";
+    }
+  }
+  function readPlayingAdjust() {
+    try {
+      return clamp(Math.round(Number(localStorage.getItem("golfRoomPlayingAdjust")) || 0), -20, 20);
+    } catch (e) {
+      return 0;
+    }
+  }
+  function readPinPosition() {
+    try {
+      return normalizePinPosition(localStorage.getItem("golfRoomPinPosition"));
+    } catch (e) {
+      return "middle";
+    }
+  }
+  function readBallLie() {
+    try {
+      return normalizeLie(localStorage.getItem("golfRoomBallLie"));
+    } catch (e) {
+      return "fairway";
+    }
+  }
+  function readHazardSide() {
+    try {
+      return normalizeHazardSide(localStorage.getItem("golfRoomHazardSide"));
+    } catch (e) {
+      return "none";
+    }
+  }
+  function readRecentDistances() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("golfRoomRecentDistances") || "[]");
+      return Array.isArray(raw) ? raw.map((v) => Math.round(Number(v))).filter((v) => Number.isFinite(v) && v > 0).slice(0, 6) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  function readPinnedDistances() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("golfRoomPinnedDistances") || "[100,120,150]");
+      return Array.isArray(raw) ? raw.map((v) => Math.round(Number(v))).filter((v) => Number.isFinite(v) && v > 0).slice(0, 8) : [100, 120, 150];
+    } catch (e) {
+      return [100, 120, 150];
+    }
+  }
   function saveAvatarStyle(v) {
     try {
       localStorage.setItem("golfRoomAvatarStyle", v === "cyber" ? "cyber" : "cute");
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function saveTheme(v) {
+    try {
+      localStorage.setItem("golfRoomTheme", normalizeTheme(v));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function saveConfidenceView(v) {
+    try {
+      localStorage.setItem("golfRoomConfidenceView", normalizeConfidenceView(v));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function saveConfidenceMode(v) {
+    try {
+      localStorage.setItem("golfRoomConfidenceMode", normalizeConfidenceMode(v));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function savePlayingAdjust(v) {
+    try {
+      localStorage.setItem("golfRoomPlayingAdjust", String(clamp(Math.round(Number(v) || 0), -20, 20)));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function savePinPosition(v) {
+    try {
+      localStorage.setItem("golfRoomPinPosition", normalizePinPosition(v));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function saveBallLie(v) {
+    try {
+      localStorage.setItem("golfRoomBallLie", normalizeLie(v));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function saveHazardSide(v) {
+    try {
+      localStorage.setItem("golfRoomHazardSide", normalizeHazardSide(v));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function rememberRecentDistance(v, min, max) {
+    const n = clamp(Math.round(Number(v) || 0), min || 1, max || 320);
+    if (!n) return;
+    const out = [n].concat((RECENT_DISTANCES || []).filter((d) => d !== n)).slice(0, 6);
+    RECENT_DISTANCES = out;
+    try {
+      localStorage.setItem("golfRoomRecentDistances", JSON.stringify(out));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function clearRecentDistances() {
+    RECENT_DISTANCES = [];
+    try {
+      localStorage.removeItem("golfRoomRecentDistances");
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function togglePinnedDistance(v, min, max) {
+    const n = clamp(Math.round(Number(v) || 0), min || 1, max || 320);
+    if (!n) return;
+    const exists = (PINNED_DISTANCES || []).indexOf(n) >= 0;
+    PINNED_DISTANCES = exists
+      ? (PINNED_DISTANCES || []).filter((d) => d !== n)
+      : [n].concat(PINNED_DISTANCES || []).slice(0, 8);
+    try {
+      localStorage.setItem("golfRoomPinnedDistances", JSON.stringify(PINNED_DISTANCES));
     } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
