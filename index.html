@@ -136,12 +136,22 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 .pro td.num{font-family:'IBM Plex Mono';font-weight:600}
 .pro-wrap{width:100%;overflow-x:auto}
 .foot{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted2);font-size:11px;line-height:1.7}
-.controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
-.ctrl{display:flex;flex-direction:column;gap:5px}
+.controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,.92fr);gap:14px;margin-bottom:14px;padding:14px;border:1px solid rgba(12,26,23,.14);border-radius:var(--r);background:linear-gradient(135deg,rgba(255,216,22,.16),rgba(255,255,255,.96) 36%,rgba(43,95,227,.06)),var(--surface-solid);box-shadow:var(--shadow)}
+.player-main{display:grid;grid-template-columns:82px minmax(0,1fr);gap:13px;align-items:center;min-width:0}
+.player-avatar-frame{position:relative;width:82px;height:82px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;box-shadow:0 10px 24px rgba(12,26,23,.14);border:3px solid #fff;overflow:hidden}
+.player-avatar-frame::after{content:"";position:absolute;inset:4px;border-radius:50%;border:1px solid rgba(12,26,23,.14);pointer-events:none}
+.player-avatar,.player-avatar-img{display:block;width:100%;height:100%;object-fit:cover}
+.player-kicker{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:800;color:var(--gold);letter-spacing:1.1px;text-transform:uppercase}
+.player-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.player-name-row strong{font-size:24px;font-weight:900;line-height:1.05;letter-spacing:0}
+.player-hcp{display:inline-flex;align-items:center;min-height:24px;border:1px solid var(--gold-line);border-radius:999px;background:var(--gold-bg);color:var(--gold);font-family:'IBM Plex Mono';font-size:11px;font-weight:900;padding:2px 8px;white-space:nowrap}
+.player-status{margin-top:6px;color:var(--muted);font-size:12.5px;line-height:1.45}
+.player-controls{display:grid;grid-template-columns:minmax(86px,.65fr) minmax(105px,.75fr) minmax(165px,1.2fr);gap:8px;align-items:end;min-width:0}
+.ctrl{display:flex;flex-direction:column;gap:5px;min-width:0}
 .ctrl.grow{flex:1}
 .ctrl label{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px}
-.ctrl select{min-height:40px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--ink);padding:0 12px;font:inherit;font-weight:700;min-width:170px;width:100%}
-.controls .sel-meta{font-size:11px;color:var(--muted);align-self:center}
+.ctrl select{min-height:40px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--ink);padding:0 12px;font:inherit;font-weight:800;min-width:0;width:100%}
+.controls .sel-meta{grid-column:2;color:var(--muted);font-size:11.5px;line-height:1.45;min-height:18px}
 .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 .tab-button{min-height:46px;border:1px solid var(--line);border-radius:var(--r);background:rgba(255,255,255,.7);color:var(--ink);font:inherit;font-weight:800;cursor:pointer;transition:background .16s,border-color .16s,color .16s}
 .tab-button:hover{border-color:var(--blue)}
@@ -155,6 +165,32 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 .dtable th{color:var(--muted);font-weight:700;font-size:11px}
 .dtable th:first-child,.dtable td:first-child{text-align:left}
 .dtable tr:last-child td{border-bottom:none}
+.launch-cell{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:132px}
+.launch-value{font-weight:800}
+.launch-tag{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px 6px;background:var(--bg2);color:var(--muted);font-family:'IBM Plex Mono';font-size:10px;font-weight:800;white-space:nowrap}
+.launch-tag.normal{color:var(--success);background:rgba(31,157,107,.10);border-color:rgba(31,157,107,.34)}
+.launch-tag.low,.launch-tag.high{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+.launch-tag.none{color:var(--muted2)}
+.cc-grid .launch-tag{display:flex;margin-top:3px;width:max-content;max-width:100%;font-size:9.5px;line-height:1.2}
+.action-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(250px,.75fr);gap:12px}
+.action-hero,.action-side,.action-event{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-width:0}
+.action-hero{padding:16px;background:linear-gradient(135deg,rgba(43,95,227,.09),rgba(255,255,255,.94))}
+.action-hero.urgent{border-color:var(--warn-line);background:linear-gradient(135deg,rgba(232,101,79,.14),rgba(255,255,255,.94))}
+.action-eyebrow{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:900;color:var(--blue);letter-spacing:.7px;text-transform:uppercase}
+.action-title{font-size:21px;font-weight:900;line-height:1.16;margin-top:6px}
+.action-body{font-size:12.5px;color:var(--muted);line-height:1.65;margin-top:8px}
+.action-metrics{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.action-metrics span{display:inline-flex;gap:4px;align-items:center;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.70);padding:4px 8px;font-size:11px;color:var(--muted)}
+.action-metrics b{color:var(--ink);font-family:'IBM Plex Mono'}
+.action-side{padding:14px}
+.action-side-title{font-size:13px;font-weight:900;margin-bottom:8px}
+.action-task{display:grid;grid-template-columns:25px minmax(0,1fr);gap:8px;align-items:start;padding:8px 0;border-top:1px solid rgba(43,95,227,.10)}
+.action-task:first-of-type{border-top:none}
+.action-task span{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--blue);color:#fff;font-size:11px;font-weight:900}
+.action-task p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.action-event{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:12px 14px;font-size:12.5px;line-height:1.55}
+.action-event b{white-space:nowrap}
+.action-event span{color:var(--muted)}
 .note{color:var(--muted);font-size:11.5px;margin-top:8px}
 .trend-grid{display:grid;grid-template-columns:1fr;gap:12px}
 .bag-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -221,7 +257,8 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 .event-sources{color:var(--muted);font-size:11.5px;line-height:1.6;margin-top:12px}
 .event-sources a{color:var(--blue);font-weight:800;text-decoration:none}
 @media(max-width:720px){.hole-map-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){h1,.sub{max-width:100%}.kpis,.cards,.trend-grid,.trend-guide,.bag-grid,.event-kpis,.hole-map-grid{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(2,1fr)}.dist{min-width:86px;font-size:13px}.persona{width:128px;right:0}.persona-chip{left:14px;right:auto;text-align:left}.bag-item{grid-template-columns:1fr}}
+@media(max-width:720px){.controls,.action-grid{grid-template-columns:1fr}.controls .sel-meta{grid-column:1}.player-controls{grid-template-columns:1fr 1fr}.action-event{display:block}.action-event b{display:block;margin-bottom:3px}}
+@media(max-width:560px){h1,.sub{max-width:100%}.kpis,.cards,.trend-grid,.trend-guide,.bag-grid,.event-kpis,.hole-map-grid{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(2,1fr)}.dist{min-width:86px;font-size:13px}.persona{width:128px;right:0}.persona-chip{left:14px;right:auto;text-align:left}.bag-item{grid-template-columns:1fr}.player-main{grid-template-columns:68px minmax(0,1fr);gap:11px}.player-avatar-frame{width:68px;height:68px}.player-name-row strong{font-size:21px}.player-controls{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -243,8 +280,19 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
   </div>
 
   <div class="controls">
-    <div class="ctrl"><label for="player-select">球員</label><select id="player-select"></select></div>
-    <div class="ctrl grow"><label for="session-select">場次</label><select id="session-select"></select></div>
+    <div class="player-main">
+      <div class="player-avatar-frame" id="player-avatar" aria-hidden="true"></div>
+      <div class="player-info">
+        <div class="player-kicker">Player Profile</div>
+        <div class="player-name-row"><strong id="player-name">—</strong><span class="player-hcp" id="player-hcp">HCP —</span></div>
+        <div class="player-status" id="player-status">選擇球員後載入資料。</div>
+      </div>
+    </div>
+    <div class="player-controls">
+      <div class="ctrl"><label for="player-select">球員</label><select id="player-select"></select></div>
+      <div class="ctrl"><label for="avatar-style-select">頭像風格</label><select id="avatar-style-select"><option value="cute">可愛</option><option value="cyber">Cyber</option></select></div>
+      <div class="ctrl grow"><label for="session-select">場次</label><select id="session-select"></select></div>
+    </div>
     <span class="sel-meta" id="sel-meta"></span>
   </div>
 
@@ -314,24 +362,30 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
 
     <div class="view-panel" data-panel="coach">
       <div class="sec">
-        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-curious-caddie.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">長期教練建議（自動）</span></div>
-        <div class="sec-d">用全部歷史紀錄的近三場穩定性、每支球桿趨勢、方向偏移與東華風險自動產生；CSV 更新後會跟著重算。</div>
+        <div class="sec-h"><img class="sec-cat" src="./assets/golf-cat-ip/cat-operator-tablet.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">Action Center</span></div>
+        <div class="sec-d">把最新趨勢、規則化教練建議與目標賽事連在一起，直接產生本週練習優先順序。</div>
+        <div id="actioncenter"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-curious-caddie.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">長期教練建議（自動）</span></div>
+        <div class="sec-d">用全部歷史紀錄的近三場穩定性、每支球桿趨勢、出球角、方向偏移與目標賽事風險自動產生；CSV 更新後會跟著重算。</div>
         <div class="take" id="longcoach"></div>
       </div>
 
       <div class="sec">
-        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-outlier-alert.png?v=4" alt=""><span class="sec-n num">02</span><span class="sec-t">關鍵訊號（自動分析）</span></div>
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-outlier-alert.png?v=4" alt=""><span class="sec-n num">03</span><span class="sec-t">關鍵訊號（自動分析）</span></div>
         <div class="sec-d">由數據自動判讀：距離梯反序/重疊/缺口、方向系統性偏移、失誤率偏高的桿。</div>
         <div class="flags" id="flags"></div>
       </div>
 
       <div class="sec">
-        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-data-watcher.png?v=4" alt=""><span class="sec-n num">03</span><span class="sec-t">本次選取場次重點</span></div>
+        <div class="sec-h"><img class="sec-cat" src="./assets/cat/cat-data-watcher.png?v=4" alt=""><span class="sec-n num">04</span><span class="sec-t">本次選取場次重點</span></div>
         <div class="take" id="take"></div>
       </div>
 
       <div class="sec">
-        <div class="sec-h"><span class="sec-n num">04</span><span class="sec-t">名人標準 · 世界前十名選手</span></div>
+        <div class="sec-h"><span class="sec-n num">05</span><span class="sec-t">名人標準 · 世界前十名選手</span></div>
         <div class="sec-d">職業選手的開球距離與球速，當作對標的天花板參考。</div>
         <div class="pro" id="pro"></div>
       </div>
@@ -340,7 +394,7 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
     <div class="view-panel" data-panel="event">
       <div class="sec">
         <div class="sec-h"><img class="sec-cat" src="./assets/golf-cat-ip/cat-benchmark-scout.png?v=4" alt=""><span class="sec-n num">01</span><span class="sec-t">賽事策略</span></div>
-        <div class="sec-d">2026-07-16 東華菁英：梯台選擇、右 OB 風險、逐洞目標與賽前三週訓練計畫。</div>
+        <div class="sec-d">目標球場攻略：梯台選擇、高風險洞、逐洞目標、訓練計畫與當天 checklist。</div>
         <div id="eventplan"></div>
       </div>
     </div>
@@ -349,6 +403,6 @@ h1{font-family:'Inter';font-weight:900;font-size:clamp(26px,5vw,38px);line-heigh
   </div>
 
 </div>
-<script src="./app.js?v=8"></script>
+<script src="./app.js?v=13"></script>
 </body>
 </html>

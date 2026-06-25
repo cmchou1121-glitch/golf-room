@@ -1,0 +1,191 @@
+{
+  "id": "donghua-2026-07-16",
+  "date": "2026-07-16",
+  "course": "東華菁英高爾夫俱樂部",
+  "title": "2026-07-16 東華菁英",
+  "teeRecommendation": "建議打紅梯 5,813 碼。若球局必須打白梯 6,623 碼，par5 全部分三段，approach 寧可短，選桿再保守一級。",
+  "riskSummary": "東華右側 OB 反覆出現（2、4、8、10、15、18 洞），而 Tony 鐵桿有系統性右偏風險；這兩件事相乘就是爆洞主因。",
+  "rightObHoles": [
+    2,
+    4,
+    8,
+    10,
+    15,
+    18
+  ],
+  "goalScore": "目標總桿約 94；打順可破 90。每洞最多雙柏忌封頂，爆洞就 punch out 認賠。",
+  "courseMap": {
+    "title": "官方全區地圖",
+    "imageUrl": "https://donghuaelitegolf.com/wp-content/uploads/2023/12/map.png",
+    "sourceUrl": "https://donghuaelitegolf.com/map/",
+    "sourceLabel": "東華菁英高爾夫俱樂部官網"
+  },
+  "holeMapSourceBaseUrl": "https://donghuaelitegolf.com/course/hole",
+  "holeTargets": [
+    {
+      "hole": 1,
+      "par": 5,
+      "hcp": 9,
+      "target": 6,
+      "note": "分三段、避左前沙"
+    },
+    {
+      "hole": 2,
+      "par": 4,
+      "hcp": 3,
+      "target": 6,
+      "note": "雙 OB；收桿偏中，你易右，特別小心"
+    },
+    {
+      "hole": 3,
+      "par": 3,
+      "hcp": 15,
+      "target": 4,
+      "note": "攻果嶺中央、2 推"
+    },
+    {
+      "hole": 4,
+      "par": 4,
+      "hcp": 13,
+      "target": 5,
+      "note": "偏左避右 OB"
+    },
+    {
+      "hole": 5,
+      "par": 4,
+      "hcp": 5,
+      "target": 5,
+      "note": "球道正中最安全"
+    },
+    {
+      "hole": 6,
+      "par": 3,
+      "hcp": 7,
+      "target": 4,
+      "note": "取足夠桿越水"
+    },
+    {
+      "hole": 7,
+      "par": 4,
+      "hcp": 1,
+      "target": 6,
+      "note": "招牌洞不貪，layup 到水前"
+    },
+    {
+      "hole": 8,
+      "par": 5,
+      "hcp": 17,
+      "target": 6,
+      "note": "par 機會，分三段偏左中"
+    },
+    {
+      "hole": 9,
+      "par": 4,
+      "hcp": 11,
+      "target": 5,
+      "note": "攻果嶺偏左避右"
+    },
+    {
+      "hole": 10,
+      "par": 4,
+      "hcp": 4,
+      "target": 6,
+      "note": "右 OB，偏左；Driver 不穩就收桿"
+    },
+    {
+      "hole": 11,
+      "par": 4,
+      "hcp": 10,
+      "target": 5,
+      "note": "偏中左，上坡多取一桿"
+    },
+    {
+      "hole": 12,
+      "par": 5,
+      "hcp": 6,
+      "target": 6,
+      "note": "大水池別貪，分三段"
+    },
+    {
+      "hole": 13,
+      "par": 3,
+      "hcp": 8,
+      "target": 4,
+      "note": "取足桿，留 below hole"
+    },
+    {
+      "hole": 14,
+      "par": 4,
+      "hcp": 16,
+      "target": 5,
+      "note": "par 機會，靠左開球越右大樹"
+    },
+    {
+      "hole": 15,
+      "par": 4,
+      "hcp": 14,
+      "target": 5,
+      "note": "偏左避右 OB"
+    },
+    {
+      "hole": 16,
+      "par": 3,
+      "hcp": 12,
+      "target": 4,
+      "note": "逆風多取一桿，果嶺中央"
+    },
+    {
+      "hole": 17,
+      "par": 5,
+      "hcp": 18,
+      "target": 6,
+      "note": "par 機會，穩穩三段搶分"
+    },
+    {
+      "hole": 18,
+      "par": 4,
+      "hcp": 2,
+      "target": 6,
+      "note": "收尾求直，寧短不下水/右 OB"
+    }
+  ],
+  "trainingPlan": [
+    {
+      "title": "第 1 週（6/24–6/30）開球方向 + 推桿基礎",
+      "items": [
+        "7i 放對齊棒修右偏，建立偏左起始線安全球路。",
+        "Driver 找不右曲的穩定打法，決定哪些洞改用 3W。",
+        "長距離 lag 推 6/9/12m 留進 1.5m；短推 1–1.5m 連續進 10 顆。"
+      ]
+    },
+    {
+      "title": "第 2 週（7/1–7/7）短桿救球 + 鐵桿距離",
+      "items": [
+        "30 / 50 / 70 碼 wedge 分段距離。",
+        "基本沙坑出坑，以出得來為優先。",
+        "確認各鐵桿穩定 carry，對齊東華各洞進攻距離。"
+      ]
+    },
+    {
+      "title": "第 3 週（7/8–7/14）整合 + 模擬",
+      "items": [
+        "模擬右 OB 洞偏左、par5 分三段、par3 攻中央。",
+        "下場一次演練先方向後距離與雙柏忌封頂。"
+      ]
+    },
+    {
+      "title": "賽前（7/15）",
+      "items": [
+        "輕量找手感，確認球具與距離表，不練新東西。"
+      ]
+    }
+  ],
+  "checklist": [
+    "暖身順序：推桿（長短）→ wedge → 鐵桿 → Driver。",
+    "先確認當天風向。",
+    "右 OB 洞偏左，不確定就收桿。",
+    "par5 分三段，水池洞不貪。",
+    "每洞最多雙柏忌，爆洞就 punch out。",
+    "準比遠重要，保 bogey 就是賺。"
+  ]
+}

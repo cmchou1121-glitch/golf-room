@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "direction_bias",
+      "pill": "方向",
+      "priority": 95,
+      "category": "方向",
+      "title": "先處理起始方向",
+      "cardTitle": "方向控制：{findingTitle}",
+      "cardBody": "{findingBody} 本週先練起始線與桿面方向，距離先不要加速追。",
+      "metric": "右/左偏比例與平均偏移",
+      "practice": [
+        "對齊棒起始線：每支問題桿 10 球，記錄左/中/右，不看距離。",
+        "半揮到全揮階梯：50%、75%、100% 各 5 球，確認偏差是不是只在用力時出現。",
+        "賽事洞位連動：遇到右側 OB 或水池洞，預設瞄安全側，不用修球硬救。"
+      ]
+    },
+    {
+      "id": "launch_window",
+      "pill": "出球角",
+      "priority": 85,
+      "category": "彈道",
+      "title": "把彈道窗口打回參考區間",
+      "cardTitle": "彈道窗口：{findingTitle}",
+      "cardBody": "{findingBody} 下一次練習只看穩定球的出球角是否回到參考區間。",
+      "metric": "出球角 vs 參考區間",
+      "practice": [
+        "問題桿各打 8–10 球，刪掉失誤球後看中位數出球角。",
+        "偏低時先查擊球點、球位與是否打薄；偏高時查動態桿面角與擊球點過高。",
+        "同一支桿用同一顆球重測，避免把半揮或切桿混進全揮判斷。"
+      ]
+    },
+    {
+      "id": "gapping_ladder",
+      "pillAny": [
+        "反序",
+        "重疊",
+        "缺口",
+        "gapping"
+      ],
+      "priority": 80,
+      "category": "距離階梯",
+      "title": "重新確認距離階梯",
+      "cardTitle": "距離階梯：{findingTitle}",
+      "cardBody": "{findingBody} 先補同條件樣本，再決定是新桿適應、選桿重疊，還是真的需要調整配置。",
+      "metric": "穩定球 carry gap",
+      "practice": [
+        "相鄰問題桿各 6 顆全揮，只保留穩定球 carry。",
+        "同一目標線、同一節奏、同一顆球測，不混半揮與低彈道球。",
+        "若兩支桿差距仍小於 5 碼，暫時指定其中一支為控制距離打法。"
+      ]
+    },
+    {
+      "id": "mishit_hotspot",
+      "pill": "穩定性",
+      "priority": 75,
+      "category": "穩定性",
+      "title": "先把高失誤率球桿穩住",
+      "cardTitle": "穩定性熱點：{findingTitle}",
+      "cardBody": "{findingBody} 本週先把這支桿當品質檢查桿，連續穩定後再練距離。",
+      "metric": "失誤率與穩定球比例",
+      "practice": [
+        "5 球一組，只要出現 2 顆失誤球就降速重做。",
+        "每組記錄穩定球數，不用最遠距離當成功標準。",
+        "連續兩組達到 4/5 穩定球，再回到正常揮速。"
+      ]
+    },
+    {
+      "id": "driver_control",
+      "pill": "Driver",
+      "priority": 60,
+      "category": "開球",
+      "title": "Driver 先找可上場版本",
+      "cardTitle": "開球控制：{findingTitle}",
+      "cardBody": "{findingBody} Driver 先追可重複落點與可救位置，不急著追單球最遠。",
+      "metric": "總距離離散與左右偏移",
+      "practice": [
+        "Driver 10 球測試：只計算總距離達標且左右偏移可救的球。",
+        "同場比較 3W 安全球，決定賽事高風險洞是否降桿。",
+        "熱身若右偏或離散過大，當天預設 3W / 3H 作保守開球。"
+      ]
+    }
+  ],
+  "fallbackPractice": [
+    "固定熱身流程：W、8i、6i、3W、Driver，各 5 球只看穩定球。",
+    "每次練習保留一組 100–135 碼控距，服務 par3 與 layup 後進攻。",
+    "最後用 6 球模擬下場：安全開球、保守攻果嶺、兩推收。"
+  ]
+}

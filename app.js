@@ -23,11 +23,27 @@
     lpga: { label: "LPGA Tour", metric: "carry", clubs: { D: 218, "3W": 195, "5i": 161, "6i": 152, "7i": 141, "8i": 130, "9i": 119, PW: 107 } },
     pga: { label: "PGA Tour（名人）", metric: "carry", clubs: { D: 275, "3W": 243, "3H": 225, "5i": 194, "6i": 183, "7i": 172, "8i": 160, "9i": 148, PW: 136 } },
   };
+  const PLAYER_AVATARS = {
+    tony: { hair: "sweep", face: "long", seed: 0 },
+    renwen: { hair: "short", face: "round", seed: 1 },
+    dondon: { hair: "cap", face: "wide", seed: 2 },
+    ann: { hair: "bob", face: "soft", seed: 3 },
+    yoyo: { hair: "pony", face: "soft", seed: 4 },
+    kelly: { hair: "wave", face: "round", seed: 5 },
+  };
 
   // 球袋順序（短→長），未列到的球桿會自動接在後面
   const BAG_ORDER = ["LW", "SW", "W", "GW", "AW", "PW", "9i", "8i", "7i", "6i", "5i", "4i", "3i", "2i", "6H", "5H", "4H", "3H", "2H", "9W", "7W", "5W", "4W", "3W", "2W", "D"];
   const WOODS = { "2H": 1, "3H": 1, "4H": 1, "5H": 1, "6H": 1, "2W": 1, "3W": 1, "4W": 1, "5W": 1, "7W": 1, "9W": 1, D: 1 };
   const WEDGES = { LW: 1, SW: 1, W: 1, GW: 1, AW: 1, PW: 1 };
+  const LAUNCH_REFERENCES = {
+    D: { low: 10, high: 16, target: 13.5, note: "Driver 優化區間" },
+    "2W": { low: 8, high: 13 }, "3W": { low: 9, high: 14 }, "4W": { low: 10, high: 15 }, "5W": { low: 11, high: 16 }, "7W": { low: 12, high: 18 }, "9W": { low: 14, high: 20 },
+    "2H": { low: 9, high: 15 }, "3H": { low: 10, high: 16 }, "4H": { low: 12, high: 18 }, "5H": { low: 14, high: 20 }, "6H": { low: 16, high: 22 },
+    "2i": { low: 10, high: 16 }, "3i": { low: 11, high: 17 }, "4i": { low: 12, high: 18 }, "5i": { low: 14, high: 19 }, "6i": { low: 15, high: 20, target: 17 },
+    "7i": { low: 17, high: 23 }, "8i": { low: 19, high: 25 }, "9i": { low: 21, high: 27 },
+    PW: { low: 23, high: 30, target: 27 }, AW: { low: 24, high: 31 }, GW: { low: 25, high: 32 }, W: { low: 25, high: 32 }, SW: { low: 27, high: 35 }, LW: { low: 29, high: 38 },
+  };
   const CLUB_TREND_WINDOW = 5;
   const DONGHUA_OLD_HOLE_MAPS = { 3: 1, 6: 1, 10: 1, 12: 1, 17: 1, 18: 1 };
   const DONGHUA_YARDS = {
@@ -57,7 +73,9 @@
   let DEEP_CLUB = "all";
   let TAB = "data";
   let EVENT_INDEX = 0;
+  let AVATAR_STYLE = readAvatarStyle();
   let PLAYERS = [];
+  let COACH_RULES = { rules: [], fallbackPractice: [] };
   let curPlayer = null;
   let LOADED = [];                          // 該球員每一場 {meta, shots, model, analysis}
   let ALLMODEL = null, ALLANALYSIS = null;  // 全部場次合計
@@ -74,7 +92,10 @@
       bindToggle();
       bindBench();
       bindTabs();
+      bindAvatarStyle();
       const manifest = await fetchJSON("./data/manifest.json");
+      await hydrateTargetEvents(manifest);
+      COACH_RULES = await loadCoachRules();
       PLAYERS = manifest.players || [];
       if (!PLAYERS.length) return showState("manifest 裡沒有任何球員。在 <b>data/manifest.json</b> 加一筆，並把 CSV 放進 <b>data/</b>。");
       const psel = document.querySelector("#player-select");
@@ -82,6 +103,7 @@
       psel.addEventListener("change", () => loadPlayer(PLAYERS[+psel.value]));
       const ssel = document.querySelector("#session-select");
       ssel.addEventListener("change", () => { curSel = ssel.value === "all" ? "all" : +ssel.value; render(); });
+      renderPlayerProfile(PLAYERS[0], []);
       await loadPlayer(PLAYERS[0]);
     } catch (e) {
       showState(
@@ -92,9 +114,38 @@
     }
   }
 
+  async function hydrateTargetEvents(manifest) {
+    const players = manifest.players || [];
+    await Promise.all(players.map(async (p) => {
+      const files = p.targetEventFiles || [];
+      if (!files.length) return;
+      const loaded = [];
+      for (const file of files) {
+        try {
+          const data = await fetchJSON("./data/" + file);
+          if (Array.isArray(data)) loaded.push.apply(loaded, data);
+          else if (data) loaded.push(data);
+        } catch (e) {
+          p.targetEventLoadError = "讀不到 " + file;
+        }
+      }
+      p.targetEvents = (p.targetEvents || []).concat(loaded);
+    }));
+  }
+
+  async function loadCoachRules() {
+    try {
+      const rules = await fetchJSON("./data/rules/coach_rules.json");
+      return rules || { rules: [], fallbackPractice: [] };
+    } catch (e) {
+      return { rules: [], fallbackPractice: [] };
+    }
+  }
+
   async function loadPlayer(p) {
     curPlayer = p;
     EVENT_INDEX = 0;
+    renderPlayerProfile(p, []);
     showState("讀取中…");
     const sessions = p.sessions || [];
     if (!sessions.length) {
@@ -105,6 +156,7 @@
       ANALYSIS = null;
       document.querySelector("#session-select").innerHTML = '<option value="">尚無場次</option>';
       document.querySelector("#sel-meta").textContent = "尚未匯入 CSV";
+      renderPlayerProfile(p, []);
       return showState("這位球員目前還沒有 CSV 場次。把檔案放進 <b>data/" + esc(p.id || "") + "/</b>，並更新 <b>data/manifest.json</b> 後，就會顯示在這裡。");
     }
     const loaded = [];
@@ -130,6 +182,7 @@
     ssel.value = String(curSel);
     document.querySelector("#state").style.display = "none";
     document.querySelector("#dash").style.display = "block";
+    renderPlayerProfile(p, loaded);
     render();
   }
 
@@ -144,6 +197,16 @@
 
   function bindTabs() {
     document.querySelectorAll("#tabs .tab-button").forEach((b) => { b.onclick = function () { setTab(b.dataset.tab); }; });
+  }
+  function bindAvatarStyle() {
+    const sel = document.querySelector("#avatar-style-select");
+    if (!sel) return;
+    sel.value = AVATAR_STYLE;
+    sel.addEventListener("change", () => {
+      AVATAR_STYLE = sel.value || "cute";
+      saveAvatarStyle(AVATAR_STYLE);
+      renderPlayerProfile(curPlayer, LOADED);
+    });
   }
   function setTab(t) {
     TAB = t;
@@ -161,6 +224,7 @@
     renderCross();
     renderStabilityTrends();
     renderBagProfiles();
+    renderActionCenter();
     renderLongCoach();
     renderCards(MODEL);
     renderDistTable(MODEL);
@@ -172,8 +236,79 @@
     setTab(TAB);
   }
 
+  function renderPlayerProfile(p, loaded) {
+    if (!p || !document.querySelector("#player-avatar")) return;
+    const sessions = p.sessions || [];
+    const ready = loaded && loaded.length ? loaded : [];
+    const latest = ready[0] ? ready[0].meta : sessions.slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))[0];
+    const status = ready.length
+      ? ready.length + " 場 CSV · 最新 " + (latest && latest.date ? latest.date : "未標日期") + (latest && latest.device ? " · " + latest.device : "")
+      : sessions.length
+        ? sessions.length + " 場設定 · 載入中"
+        : "尚未匯入 CSV · 等待第一次資料";
+    document.querySelector("#player-avatar").innerHTML = playerAvatarHTML(p);
+    document.querySelector("#player-name").textContent = p.name || p.id || "Player";
+    document.querySelector("#player-hcp").textContent = p.handicap ? "HCP " + p.handicap : "HCP —";
+    document.querySelector("#player-status").textContent = status;
+  }
+
+  function playerAvatarHTML(p) {
+    const src = playerAvatarSrc(p);
+    if (src) return '<img class="player-avatar-img" src="' + esc(src) + '" alt="' + esc(p.name || p.id || "球員") + ' 的似顏繪頭像">';
+    return playerAvatarSvg(p);
+  }
+
+  function playerAvatarSrc(p) {
+    const styles = p.avatarStyles || (p.profile && p.profile.avatarStyles) || {};
+    return styles[AVATAR_STYLE] || styles.cute || p.avatar || p.avatarUrl || (p.profile && p.profile.avatar) || "";
+  }
+
+  function playerAvatarSvg(p) {
+    const id = String(p.id || p.name || "").toLowerCase();
+    const preset = PLAYER_AVATARS[id] || { hair: "short", face: "round", seed: id.length % 6 };
+    const face = avatarFace(preset.face);
+    return '<svg class="player-avatar" viewBox="0 0 96 96" role="img" aria-label="' + esc(p.name || p.id || "球員") + ' 頭像">' +
+      '<circle cx="48" cy="48" r="43" fill="#ffd817"></circle>' +
+      avatarHair(preset.hair, true) +
+      '<path d="' + face + '" fill="#fff" stroke="#fff" stroke-width="10" stroke-linejoin="round"></path>' +
+      '<path d="' + face + '" fill="#fff" stroke="#050505" stroke-width="3.8" stroke-linejoin="round"></path>' +
+      avatarHair(preset.hair, false) +
+      avatarFeatures(preset.seed || 0) +
+      '</svg>';
+  }
+
+  function avatarFace(kind) {
+    if (kind === "wide") return "M25 47 C26 31 39 22 55 25 C70 28 78 42 75 58 C72 73 58 81 43 78 C30 75 23 64 25 47 Z";
+    if (kind === "soft") return "M27 45 C29 30 41 22 55 26 C70 30 76 45 72 61 C68 75 55 82 42 78 C30 74 24 61 27 45 Z";
+    if (kind === "long") return "M28 42 C30 27 43 20 58 25 C73 30 78 46 73 63 C69 77 57 83 43 79 C31 75 24 63 26 49 C26 46 27 44 28 42 Z";
+    return "M26 45 C28 30 41 22 56 26 C70 30 77 43 74 58 C71 73 58 81 43 78 C30 75 23 61 26 45 Z";
+  }
+
+  function avatarHair(kind, outline) {
+    const stroke = outline ? ' stroke="#fff" stroke-width="9" stroke-linejoin="round"' : ' stroke="#050505" stroke-width="2" stroke-linejoin="round"';
+    const fill = ' fill="#050505"';
+    if (kind === "bob") return '<path d="M25 49 C23 34 34 21 51 21 C69 21 78 34 76 53 C72 45 64 38 54 35 C43 32 34 36 25 49 Z"' + fill + stroke + '></path><path d="M28 46 C23 57 27 69 37 76 C31 74 24 66 22 56 C20 48 22 42 28 36 Z"' + fill + stroke + '></path>';
+    if (kind === "pony") return '<path d="M28 49 C27 33 39 21 55 24 C69 27 75 39 73 51 C63 40 49 37 32 44 Z"' + fill + stroke + '></path><path d="M70 42 C82 45 84 58 76 66 C78 56 72 52 66 50 Z"' + fill + stroke + '></path>';
+    if (kind === "wave") return '<path d="M26 48 C25 33 38 21 53 22 C69 23 78 35 77 52 C70 43 62 38 52 37 C42 36 34 39 26 48 Z"' + fill + stroke + '></path><path d="M30 36 C38 27 49 25 60 31 C50 29 41 31 33 42 Z"' + fill + stroke + '></path>';
+    if (kind === "cap") return '<path d="M27 39 C34 25 55 20 70 31 C60 32 45 34 28 44 Z"' + fill + stroke + '></path><path d="M58 30 C70 30 78 34 82 40 C73 40 66 39 58 36 Z"' + fill + stroke + '></path>';
+    if (kind === "sweep") return '<path d="M27 47 C24 33 36 22 52 21 C70 20 79 34 76 52 C66 41 53 38 36 35 C42 40 50 42 60 42 C47 47 36 44 27 47 Z"' + fill + stroke + '></path>';
+    return '<path d="M27 45 C28 30 41 22 56 24 C70 27 76 39 73 51 C62 41 49 37 31 42 Z"' + fill + stroke + '></path>';
+  }
+
+  function avatarFeatures(seed) {
+    const smile = seed % 2 ? "M42 64 C48 69 57 68 63 62" : "M42 64 C49 68 57 68 63 63";
+    const nose = seed % 3 ? "M57 44 C60 52 64 56 59 59" : "M56 44 C59 52 63 56 58 59";
+    return '<circle cx="40" cy="47" r="3.5" fill="#050505"></circle>' +
+      '<circle cx="59" cy="47" r="3.5" fill="#050505"></circle>' +
+      '<path d="M36 40 C40 38 44 39 47 41" fill="none" stroke="#050505" stroke-width="3.4" stroke-linecap="round"></path>' +
+      '<path d="M55 40 C60 38 64 39 67 42" fill="none" stroke="#050505" stroke-width="3.4" stroke-linecap="round"></path>' +
+      '<path d="' + nose + '" fill="none" stroke="#050505" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"></path>' +
+      '<path d="' + smile + '" fill="none" stroke="#050505" stroke-width="3.4" stroke-linecap="round"></path>';
+  }
+
   function renderHeader() {
     const M = MODEL;
+    renderPlayerProfile(curPlayer, LOADED);
     document.querySelector("#h-title").textContent = (curPlayer.name || curPlayer.id || "") + (curSel === "all" ? " · 全部場次" : (CURMETA.label ? " · " + CURMETA.label : (CURMETA.date ? " · " + CURMETA.date : "")));
     document.querySelector("#h-sub").textContent = (CURMETA.equipment || "") + (CURMETA.equipment && CURMETA.date ? " — " : "") + (curSel === "all" ? "" : (CURMETA.date || ""));
     document.querySelector("#sel-meta").textContent = (CURMETA.device ? "裝置 " + CURMETA.device + " · " : "") + (CURMETA.note || "");
@@ -331,16 +466,29 @@
     const m = String(s || "").match(/^\d{4}-(\d{2})-(\d{2})$/);
     return m ? Number(m[1]) + "/" + Number(m[2]) : String(s || "");
   }
+  function launchEval(club, value) {
+    const ref = LAUNCH_REFERENCES[club];
+    const refText = ref ? ref.low + "–" + ref.high + "°" : "—";
+    if (!ref || value == null || !isFinite(value)) return { cls: "none", label: "無參考", refText };
+    if (value < ref.low) return { cls: "low", label: "偏低 " + refText, refText };
+    if (value > ref.high) return { cls: "high", label: "偏高 " + refText, refText };
+    return { cls: "normal", label: "正常 " + refText, refText };
+  }
+  function launchCell(club, value) {
+    const e = launchEval(club, value);
+    const v = value == null || !isFinite(value) ? "—" : value + "°";
+    return '<div class="launch-cell"><span class="launch-value">' + esc(v) + '</span><span class="launch-tag ' + e.cls + '">' + esc(e.label) + "</span></div>";
+  }
 
   function renderDistTable(M) {
     const C = M.clubs;
     let h = '<table class="dtable"><thead><tr><th>球桿</th><th>落點</th><th>總距離</th><th>範圍</th><th>球速</th><th>出球角</th><th>失誤率</th></tr></thead><tbody>';
     M.order.forEach((c) => {
       const o = C[c];
-      h += "<tr><td>" + c + "</td><td>" + o.carry + "</td><td>" + o.total + "</td><td>" + o.carry_min + "–" + o.carry_max + "</td><td>" + o.bs + "</td><td>" + o.launch + "°</td><td>" + o.mishit_rate + "%</td></tr>";
+      h += "<tr><td>" + c + "</td><td>" + o.carry + "</td><td>" + o.total + "</td><td>" + o.carry_min + "–" + o.carry_max + "</td><td>" + o.bs + "</td><td>" + launchCell(c, o.launch) + "</td><td>" + o.mishit_rate + "%</td></tr>";
     });
     h += "</tbody></table>";
-    document.querySelector("#disttable").innerHTML = '<div class="tablewrap">' + h + "</div>";
+    document.querySelector("#disttable").innerHTML = '<div class="tablewrap">' + h + '</div><div class="note">出球角參考值用寬區間判讀，僅作彈道檢查；短桿半揮、低彈道打法與特殊球路不視為異常。</div>';
   }
 
   function renderBagProfiles() {
@@ -399,6 +547,10 @@
       cards.push({ p: 2, t: "整體穩定性仍在累積", b: "目前只有 1 場可比較；至少 2 場後才會自動判讀近三場升降。" });
     }
 
+    coachRuleCards((ALLANALYSIS && ALLANALYSIS.findings) || []).forEach((card) => {
+      if (cards.length < 4) cards.push(card);
+    });
+
     const clubRows = clubTrendRows(rows).filter((r) => r.latestShots >= 8 && r.latestRate != null);
     if (clubRows.length) {
       const target = clubRows.slice().sort((a, b) => clubCoachScore(b) - clubCoachScore(a))[0];
@@ -424,21 +576,177 @@
 
     const event = ((curPlayer || {}).targetEvents || [])[0];
     if (event) {
-      const holes = (event.rightObHoles || []).join("、") || "右側 OB 洞";
+      const holes = eventRiskHoles(event).join("、") || "高風險洞";
+      const label = eventRiskLabel(event);
+      const title = event.course || event.title || "目標賽事";
       const p = dir.side === "right" ? 1 : 2;
       cards.push({
         p,
-        t: "東華策略連動：右 OB 洞保守一級",
-        b: "東華 " + holes + " 洞右側風險高。當天 tee shot 與攻果嶺先用「保左、中間、可救」當決策順序；若熱身時仍偏右，這些洞直接降一支桿或改三段打法。",
+        t: "賽事策略連動：" + label + "保守一級",
+        b: title + " 的 " + holes + " 洞屬於" + label + "。當天 tee shot 與攻果嶺先用「保守落點、可救位置、雙柏忌封頂」當決策順序；若熱身時方向偏差明顯，這些洞直接降一支桿或改三段打法。",
       });
     }
 
     cards.push({
       p: 2,
       t: "自動化方式",
-      b: "目前已改成規則式自動建議：CSV 更新後會重算失誤率、近三場趨勢、每支球桿穩定性、方向偏移與賽事風險。AI 可以再負責把結果寫得更像教練口吻，但核心判斷會先由資料直接產生。",
+      b: "CSV 更新後會重算規則：失誤率趨勢、每支球桿穩定性、距離階梯、出球角參考值、方向偏移與賽事風險。AI 只負責把結果寫得更像教練口吻，核心判斷先由資料直接產生。",
     });
     return cards.slice(0, 5);
+  }
+
+  function renderActionCenter() {
+    const el = document.querySelector("#actioncenter");
+    if (!el) return;
+    if (!LOADED.length || !ALLMODEL || !ALLANALYSIS) {
+      el.innerHTML = '<div class="statebox">匯入 CSV 後會自動產生本週練習優先順序。</div>';
+      return;
+    }
+    const data = buildActionCenter();
+    const priority = data.priority;
+    let h = '<div class="action-grid"><div class="action-hero ' + esc(priority.cls) + '">';
+    h += '<div class="action-eyebrow">' + esc(priority.category || "Action Center") + '</div>';
+    h += '<div class="action-title">' + esc(priority.title) + "</div>";
+    h += '<div class="action-body">' + esc(priority.body) + "</div>";
+    h += '<div class="action-metrics"><span>近三場失誤率 <b>' + pct(data.metrics.latestRate) + '</b></span><span>優先桿 <b>' + esc(data.metrics.club || "—") + '</b></span><span>目標賽事 <b>' + esc(data.metrics.event || "—") + '</b></span></div>';
+    h += '</div><div class="action-side"><div class="action-side-title">本週 3 件事</div>';
+    data.practice.forEach((item, i) => {
+      h += '<div class="action-task"><span class="num">' + (i + 1) + "</span><p>" + esc(item) + "</p></div>";
+    });
+    h += "</div></div>";
+    h += '<div class="action-event"><b>' + esc(data.event.title) + "</b><span>" + esc(data.event.body) + "</span></div>";
+    el.innerHTML = h;
+  }
+
+  function buildActionCenter() {
+    const rows = LOADED.slice().reverse().map((L) => {
+      const s = statFromModel(L.model);
+      return { date: L.meta.date || "", shots: s.shots, miss: s.miss, rate: s.rate, model: L.model };
+    });
+    const latest = rollingRate(rows, rows.length - 1, Math.min(3, rows.length));
+    const prev = rows.length >= 2 ? rollingRate(rows, rows.length - 2, Math.min(3, rows.length - 1)) : { rate: null };
+    const trend = trendInfo(latest.rate, prev.rate, rows.length >= 2);
+    const ruleItems = matchedCoachRules((ALLANALYSIS && ALLANALYSIS.findings) || []);
+    const clubRows = clubTrendRows(rows).filter((r) => r.latestShots >= 8 && r.latestRate != null);
+    const club = clubRows.length ? clubRows.slice().sort((a, b) => clubCoachScore(b) - clubCoachScore(a))[0] : null;
+    const top = ruleItems[0];
+    const event = ((curPlayer || {}).targetEvents || [])[EVENT_INDEX] || ((curPlayer || {}).targetEvents || [])[0] || null;
+    const context = actionContext(top && top.finding, top && top.rule, club, event, latest, trend);
+    const priority = top
+      ? {
+          cls: top.rule.priority >= 85 ? "urgent" : "steady",
+          category: top.rule.category || "本週優先",
+          title: fillTemplate(top.rule.title || top.rule.cardTitle || top.finding.t, context),
+          body: fillTemplate(top.rule.cardBody || top.finding.b, context),
+        }
+      : fallbackPriority(latest, trend);
+    const practice = actionPractice(ruleItems, club);
+    return {
+      priority,
+      practice,
+      event: eventAction(event, club),
+      metrics: {
+        latestRate: latest.rate,
+        club: club ? club.club : "",
+        event: event ? (event.course || event.title || "") : "",
+      },
+    };
+  }
+
+  function matchedCoachRules(findings) {
+    const rules = (COACH_RULES && COACH_RULES.rules) || [];
+    return findings
+      .map((finding) => {
+        const rule = rules.find((r) => ruleMatchesFinding(r, finding));
+        return rule ? { finding, rule } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.rule.priority || 0) + (b.finding.sev || 0) * 10 - ((a.rule.priority || 0) + (a.finding.sev || 0) * 10));
+  }
+
+  function ruleMatchesFinding(rule, finding) {
+    if (!rule || !finding) return false;
+    if (rule.pill && rule.pill === finding.pill) return true;
+    if (rule.pillAny && rule.pillAny.indexOf(finding.pill) >= 0) return true;
+    return false;
+  }
+
+  function actionContext(finding, rule, club, event, latest, trend) {
+    return {
+      findingTitle: finding ? finding.t : "",
+      findingBody: finding ? finding.b : "",
+      ruleTitle: rule ? rule.title : "",
+      club: club ? club.club : "",
+      latestRate: pct(latest.rate),
+      trendLabel: trend ? trend.label : "",
+      trendDelta: trend && trend.delta != null ? signedPct(trend.delta) : "",
+      eventTitle: event ? (event.course || event.title || "") : "",
+      riskHoles: event ? eventRiskHoles(event).join("、") : "",
+    };
+  }
+
+  function fillTemplate(text, data) {
+    return String(text || "").replace(/\{([A-Za-z0-9_]+)\}/g, (_, key) => data[key] == null ? "" : data[key]);
+  }
+
+  function fallbackPriority(latest, trend) {
+    const bad = trend && trend.cls === "bad";
+    return {
+      cls: bad ? "urgent" : "steady",
+      category: "本週優先",
+      title: bad ? "先把失誤率壓回來" : "維持節奏，累積可比較樣本",
+      body: "近三場失誤率 " + pct(latest.rate) + (trend && trend.delta != null ? "，趨勢 " + trend.label + " " + signedPct(trend.delta) : "") + "。先用固定練習流程建立可重複性。",
+    };
+  }
+
+  function actionPractice(ruleItems, club) {
+    const out = [];
+    ruleItems.forEach((item) => {
+      (item.rule.practice || []).forEach((p) => {
+        if (out.length < 3 && out.indexOf(p) < 0) out.push(p);
+      });
+    });
+    if (club && out.length < 3) out.push(club.club + " 做 5 球一組品質檢查，連續兩組 4/5 穩定球才加速。");
+    ((COACH_RULES && COACH_RULES.fallbackPractice) || []).forEach((p) => {
+      if (out.length < 3 && out.indexOf(p) < 0) out.push(p);
+    });
+    return out.slice(0, 3);
+  }
+
+  function eventAction(event, club) {
+    if (!event) return { title: "賽事連動", body: "尚未設定目標賽事；練習先以穩定球與距離階梯為主。" };
+    const holes = eventRiskHoles(event);
+    const risk = holes.length ? holes.join("、") + " 洞" : "高風險洞";
+    const clubText = club ? "；本週優先桿 " + club.club + " 的穩定性會直接影響這些洞的保守策略" : "";
+    return {
+      title: "賽事連動：" + (event.course || event.title || "目標球場"),
+      body: "把 " + risk + " 當作練習情境，預設保守落點與雙柏忌封頂" + clubText + "。",
+    };
+  }
+
+  function coachRuleCards(findings) {
+    const out = [], used = {};
+    findings.forEach((f) => {
+      if (!f || f.sev < 1 || out.length >= 2) return;
+      const key = f.pill + ":" + f.t;
+      if (used[key]) return;
+      const card = coachRuleCard(f);
+      if (!card) return;
+      used[key] = 1;
+      out.push(card);
+    });
+    return out;
+  }
+
+  function coachRuleCard(f) {
+    const item = matchedCoachRules([f])[0];
+    if (!item) return null;
+    const ctx = actionContext(f, item.rule, null, ((curPlayer || {}).targetEvents || [])[0] || null, { rate: 0 }, null);
+    return {
+      p: f.sev >= 2 || (item.rule.priority || 0) >= 80 ? 1 : 2,
+      t: fillTemplate(item.rule.cardTitle || item.rule.title || f.t, ctx),
+      b: fillTemplate(item.rule.cardBody || f.b, ctx),
+    };
   }
 
   function clubCoachScore(r) {
@@ -621,6 +929,16 @@
       const o = C[c];
       if (o.n_total >= 5 && o.mishit_rate >= 40) F.push({ sev: 1, pill: "穩定性", t: c + " 失誤率偏高 " + o.mishit_rate + "%", b: o.n_used + "/" + o.n_total + " 為穩定球，先把擊球一致性練起來再談距離。" });
     });
+    const launchLow = [], launchHigh = [];
+    order.forEach((c) => {
+      const o = C[c], e = launchEval(c, o.launch);
+      if (o.n_used < 5 || e.cls === "none" || e.cls === "normal") return;
+      const txt = c + " " + o.launch + "°（參考 " + e.refText + "）";
+      if (e.cls === "low") launchLow.push(txt);
+      if (e.cls === "high") launchHigh.push(txt);
+    });
+    if (launchLow.length >= 2) F.push({ sev: 1, pill: "出球角", t: "多支球桿出球角偏低", b: launchLow.join("、") + "。若同時 carry 不足，優先檢查擊球點、球位與是否打薄，不急著改桿。" });
+    if (launchHigh.length >= 2) F.push({ sev: 1, pill: "出球角", t: "多支球桿出球角偏高", b: launchHigh.join("、") + "。若同時總距離掉或最高點過高，優先檢查動態桿面角與是否打到桿面上方。" });
     if (C.D) {
       const d = C.D, spread = d.total_max - d.total_min;
       F.push({ sev: spread > 70 ? 2 : 0, pill: "Driver", t: "一號木總結", b: "方向 " + d.n_left + "L:" + d.n_right + "R（平均 " + fmtOff(d.off_mean) + "）、球速 " + d.bs + " mph；總距離 " + d.total_min + "–" + d.total_max + " 碼、離散 std " + d.total_std + "。" + (spread > 70 ? "散佈偏大，一致性是下一步。" : "散佈尚可。") });
@@ -646,6 +964,7 @@
       case "重疊": return "破桿期先別急著調 gapping（" + f.t + "）";
       case "gapping": return "破桿期先別急著調 gapping（" + f.t + "）";
       case "穩定性": return "先練一致性：" + f.t;
+      case "出球角": return "用出球角參考值確認彈道：" + f.t;
       case "Driver": return "Driver：練一致性與出球角控制";
       default: return f.t;
     }
@@ -760,11 +1079,12 @@
       .reverse()
       .map((c) => {
         const o = C[c], isW = WOODS[c] ? " wood" : "";
+        const launch = launchEval(c, o.launch);
         return (
           '<div class="cc"><div class="cc-top"><div class="cc-club' + isW + '">' + c + '</div><div class="cc-n">採用 ' + o.n_used + "/" + o.n_total + "<br>失誤率 " + o.mishit_rate + '%</div></div>' +
           '<div class="cc-main"><span class="big num">' + o.carry + '</span><span class="unit">碼 落點</span></div>' +
           '<div class="cc-sub">總距離 ' + o.total + " 碼 · 範圍 " + o.carry_min + "–" + o.carry_max + '</div>' +
-          '<div class="cc-grid"><div>球速<b class="num">' + o.bs + ' mph</b></div><div>出球角<b class="num">' + o.launch + '°</b></div><div>最高點<b class="num">' + o.apex + ' ft</b></div><div>一致性<b>' + consist(o.total_std) + "</b></div></div>" +
+          '<div class="cc-grid"><div>球速<b class="num">' + o.bs + ' mph</b></div><div>出球角<b class="num">' + o.launch + '°</b><span class="launch-tag ' + launch.cls + '">' + esc(launch.label) + '</span></div><div>最高點<b class="num">' + o.apex + ' ft</b></div><div>一致性<b>' + consist(o.total_std) + "</b></div></div>" +
           dispCard(o) + "</div>"
         );
       })
@@ -993,7 +1313,7 @@
   function renderFoot(M) {
     document.querySelector("#foot").innerHTML =
       "方法：以「無坡 · 比賽球」為主數據。穩定球過濾＝落點/球速低於該桿中位數 75%、或出球角≤5°、或最高點≤2ft（一號木另含沖天炮規則）視為失誤球，只用穩定球算平均與 gapping。本場 " +
-      M.totals.shots + " 球，採用 " + M.totals.used + " 球。<br><b>球桿標籤：</b>2026-06-23 新鐵桿場次的 CSV <b>SW</b> 正名為 <b>W（T250 48°）</b>；舊資料的 <b>SW</b> 保留為 Kirkland 56°。資料即時由 CSV 計算，數字會隨資料更新。";
+      M.totals.shots + " 球，採用 " + M.totals.used + " 球。<br><b>出球角：</b>讀取 CSV 的 <b>出球角度(度)</b> 欄位，並用各球桿參考區間標示偏低 / 正常 / 偏高。<br><b>球桿標籤：</b>2026-06-23 新鐵桿場次的 CSV <b>SW</b> 正名為 <b>W（T250 48°）</b>；舊資料的 <b>SW</b> 保留為 Kirkland 56°。資料即時由 CSV 計算，數字會隨資料更新。";
   }
 
   // ---------- utils ----------
@@ -1012,5 +1332,18 @@
   function r1(x) { return Math.round(x * 10) / 10; }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function fmtOff(v) { const r = Math.round(v * 10) / 10; return r === 0 ? "0" : Math.abs(r) + (r < 0 ? "L" : "R"); }
+  function readAvatarStyle() {
+    try {
+      const v = localStorage.getItem("golfRoomAvatarStyle");
+      return v === "cyber" ? "cyber" : "cute";
+    } catch (e) {
+      return "cute";
+    }
+  }
+  function saveAvatarStyle(v) {
+    try {
+      localStorage.setItem("golfRoomAvatarStyle", v === "cyber" ? "cyber" : "cute");
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 })();

@@ -7,6 +7,12 @@
       "id": "tony",
       "name": "Tony",
       "handicap": "19+",
+      "gender": "male",
+      "avatar": "assets/avatars/tony-cute-v1.png",
+      "avatarStyles": {
+        "cute": "assets/avatars/tony-cute-v1.png",
+        "cyber": "assets/avatars/tony-cyber-v1.png"
+      },
       "sessions": [
         {
           "date": "2026-06-23",
@@ -255,544 +261,64 @@
           ]
         }
       ],
-      "targetEvents": [
-        {
-          "id": "donghua-2026-07-16",
-          "date": "2026-07-16",
-          "course": "東華菁英高爾夫俱樂部",
-          "title": "2026-07-16 東華菁英",
-          "teeRecommendation": "建議打紅梯 5,813 碼。若球局必須打白梯 6,623 碼，par5 全部分三段，approach 寧可短，選桿再保守一級。",
-          "riskSummary": "東華右側 OB 反覆出現（2、4、8、10、15、18 洞），而 Tony 鐵桿有系統性右偏風險；這兩件事相乘就是爆洞主因。",
-          "rightObHoles": [
-            2,
-            4,
-            8,
-            10,
-            15,
-            18
-          ],
-          "goalScore": "目標總桿約 94；打順可破 90。每洞最多雙柏忌封頂，爆洞就 punch out 認賠。",
-          "courseMap": {
-            "title": "官方全區地圖",
-            "imageUrl": "https://donghuaelitegolf.com/wp-content/uploads/2023/12/map.png",
-            "sourceUrl": "https://donghuaelitegolf.com/map/",
-            "sourceLabel": "東華菁英高爾夫俱樂部官網"
-          },
-          "holeMapSourceBaseUrl": "https://donghuaelitegolf.com/course/hole",
-          "holeTargets": [
-            {
-              "hole": 1,
-              "par": 5,
-              "hcp": 9,
-              "target": 6,
-              "note": "分三段、避左前沙"
-            },
-            {
-              "hole": 2,
-              "par": 4,
-              "hcp": 3,
-              "target": 6,
-              "note": "雙 OB；收桿偏中，你易右，特別小心"
-            },
-            {
-              "hole": 3,
-              "par": 3,
-              "hcp": 15,
-              "target": 4,
-              "note": "攻果嶺中央、2 推"
-            },
-            {
-              "hole": 4,
-              "par": 4,
-              "hcp": 13,
-              "target": 5,
-              "note": "偏左避右 OB"
-            },
-            {
-              "hole": 5,
-              "par": 4,
-              "hcp": 5,
-              "target": 5,
-              "note": "球道正中最安全"
-            },
-            {
-              "hole": 6,
-              "par": 3,
-              "hcp": 7,
-              "target": 4,
-              "note": "取足夠桿越水"
-            },
-            {
-              "hole": 7,
-              "par": 4,
-              "hcp": 1,
-              "target": 6,
-              "note": "招牌洞不貪，layup 到水前"
-            },
-            {
-              "hole": 8,
-              "par": 5,
-              "hcp": 17,
-              "target": 6,
-              "note": "par 機會，分三段偏左中"
-            },
-            {
-              "hole": 9,
-              "par": 4,
-              "hcp": 11,
-              "target": 5,
-              "note": "攻果嶺偏左避右"
-            },
-            {
-              "hole": 10,
-              "par": 4,
-              "hcp": 4,
-              "target": 6,
-              "note": "右 OB，偏左；Driver 不穩就收桿"
-            },
-            {
-              "hole": 11,
-              "par": 4,
-              "hcp": 10,
-              "target": 5,
-              "note": "偏中左，上坡多取一桿"
-            },
-            {
-              "hole": 12,
-              "par": 5,
-              "hcp": 6,
-              "target": 6,
-              "note": "大水池別貪，分三段"
-            },
-            {
-              "hole": 13,
-              "par": 3,
-              "hcp": 8,
-              "target": 4,
-              "note": "取足桿，留 below hole"
-            },
-            {
-              "hole": 14,
-              "par": 4,
-              "hcp": 16,
-              "target": 5,
-              "note": "par 機會，靠左開球越右大樹"
-            },
-            {
-              "hole": 15,
-              "par": 4,
-              "hcp": 14,
-              "target": 5,
-              "note": "偏左避右 OB"
-            },
-            {
-              "hole": 16,
-              "par": 3,
-              "hcp": 12,
-              "target": 4,
-              "note": "逆風多取一桿，果嶺中央"
-            },
-            {
-              "hole": 17,
-              "par": 5,
-              "hcp": 18,
-              "target": 6,
-              "note": "par 機會，穩穩三段搶分"
-            },
-            {
-              "hole": 18,
-              "par": 4,
-              "hcp": 2,
-              "target": 6,
-              "note": "收尾求直，寧短不下水/右 OB"
-            }
-          ],
-          "trainingPlan": [
-            {
-              "title": "第 1 週（6/24–6/30）開球方向 + 推桿基礎",
-              "items": [
-                "7i 放對齊棒修右偏，建立偏左起始線安全球路。",
-                "Driver 找不右曲的穩定打法，決定哪些洞改用 3W。",
-                "長距離 lag 推 6/9/12m 留進 1.5m；短推 1–1.5m 連續進 10 顆。"
-              ]
-            },
-            {
-              "title": "第 2 週（7/1–7/7）短桿救球 + 鐵桿距離",
-              "items": [
-                "30 / 50 / 70 碼 wedge 分段距離。",
-                "基本沙坑出坑，以出得來為優先。",
-                "確認各鐵桿穩定 carry，對齊東華各洞進攻距離。"
-              ]
-            },
-            {
-              "title": "第 3 週（7/8–7/14）整合 + 模擬",
-              "items": [
-                "模擬右 OB 洞偏左、par5 分三段、par3 攻中央。",
-                "下場一次演練先方向後距離與雙柏忌封頂。"
-              ]
-            },
-            {
-              "title": "賽前（7/15）",
-              "items": [
-                "輕量找手感，確認球具與距離表，不練新東西。"
-              ]
-            }
-          ],
-          "checklist": [
-            "暖身順序：推桿（長短）→ wedge → 鐵桿 → Driver。",
-            "先確認當天風向。",
-            "右 OB 洞偏左，不確定就收桿。",
-            "par5 分三段，水池洞不貪。",
-            "每洞最多雙柏忌，爆洞就 punch out。",
-            "準比遠重要，保 bogey 就是賺。"
-          ]
-        },
-        {
-          "id": "bali-international-strategy",
-          "date": "TBD",
-          "course": "八里國際高爾夫球場",
-          "title": "八里國際攻略",
-          "teeKpi": {
-            "value": "紅梯",
-            "label": "建議梯台 5,128 碼"
-          },
-          "goalKpi": {
-            "value": "~93",
-            "label": "目標總桿"
-          },
-          "teeRecommendation": "建議先用紅梯 5,128 碼做攻略。白梯 6,223 碼會讓多數 par4 變成長距離第二桿，藍梯 6,728 碼暫時不適合以成績為目標。若球局必須打白梯，目標總桿加 5–7 桿，par5 全部三段處理。",
-          "riskSummary": "八里本身不算長，主要防守是海風與後九水池。前九較受風且碼數壓力大，容易把開球方向與距離判斷放大；後九風稍小，但水池會讓攻果嶺與 layup 決策變得更重要。",
-          "riskHoles": [
-            2,
-            7,
-            9,
-            13,
-            15,
-            18
-          ],
-          "riskHoleLabel": "高風險洞",
-          "goalScore": "目標總桿約 93；風小、開球穩定時挑戰 90 內。HCP 1/2/3 洞接受雙柏忌，所有水池洞先保球在場內。",
-          "mapNote": "目前未找到八里官方逐洞球道圖；本頁先以球場官網、觀光署球場資訊、mScorecard 逐洞碼數與 18Birdies HCP 資訊建立攻略。",
-          "sourceUrls": [
-            {
-              "label": "八里國際官網",
-              "url": "https://golf.taching.com.tw/"
-            },
-            {
-              "label": "交通部觀光署球場介紹",
-              "url": "https://www.taiwan.net.tw/m1.aspx?gid=11&sNo=0030361"
-            },
-            {
-              "label": "mScorecard 逐洞碼數",
-              "url": "https://www.mscorecard.com/mscorecard/showcourse.php?cid=1215695976422"
-            },
-            {
-              "label": "18Birdies Scorecard",
-              "url": "https://18birdies.com/golf-courses/club/d08a50e0-86ac-11e4-8c28-020000005b00/pa-li-international-golf-course"
-            }
-          ],
-          "holeTargets": [
-            {
-              "hole": 1,
-              "par": 4,
-              "hcp": 5,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 320,
-                "white": 385,
-                "blue": 415
-              },
-              "target": 5,
-              "note": "開局寬但受風，Driver 或 3W 中線，先找節奏。"
-            },
-            {
-              "hole": 2,
-              "par": 4,
-              "hcp": 3,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 315,
-                "white": 370,
-                "blue": 390
-              },
-              "target": 6,
-              "note": "HCP 3，前九受風，先保 bogey/double，不硬攻旗。"
-            },
-            {
-              "hole": 3,
-              "par": 4,
-              "hcp": 13,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 295,
-                "white": 370,
-                "blue": 440
-              },
-              "target": 5,
-              "note": "紅梯 295 碼，可用穩定開球留中短鐵，避免大右偏。"
-            },
-            {
-              "hole": 4,
-              "par": 4,
-              "hcp": 15,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 225,
-                "white": 345,
-                "blue": 380
-              },
-              "target": 5,
-              "note": "短 par4，方向優先，開球不用滿桿。"
-            },
-            {
-              "hole": 5,
-              "par": 3,
-              "hcp": 11,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 120,
-                "white": 155,
-                "blue": 175
-              },
-              "target": 4,
-              "note": "120 碼 par3，攻果嶺中央，兩推收。"
-            },
-            {
-              "hole": 6,
-              "par": 5,
-              "hcp": 9,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 450,
-                "white": 495,
-                "blue": 530
-              },
-              "target": 6,
-              "note": "par5 分三段，第二桿只求好角度。"
-            },
-            {
-              "hole": 7,
-              "par": 5,
-              "hcp": 7,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 445,
-                "white": 530,
-                "blue": 560
-              },
-              "target": 6,
-              "note": "445 碼 par5，別貪兩上，第三桿 wedge 進攻。"
-            },
-            {
-              "hole": 8,
-              "par": 3,
-              "hcp": 17,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 110,
-                "white": 135,
-                "blue": 160
-              },
-              "target": 4,
-              "note": "110 碼 par3，拿足桿攻中央。"
-            },
-            {
-              "hole": 9,
-              "par": 4,
-              "hcp": 1,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 350,
-                "white": 400,
-                "blue": 430
-              },
-              "target": 6,
-              "note": "HCP 1，前九最難，保球在場內，雙柏忌封頂。"
-            },
-            {
-              "hole": 10,
-              "par": 4,
-              "hcp": 12,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 235,
-                "white": 315,
-                "blue": 335
-              },
-              "target": 5,
-              "note": "235 碼 par4，是搶分洞但不要亂衝，開球放安全區。"
-            },
-            {
-              "hole": 11,
-              "par": 4,
-              "hcp": 8,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 290,
-                "white": 335,
-                "blue": 365
-              },
-              "target": 5,
-              "note": "290 碼 par4，穩開球後攻中央。"
-            },
-            {
-              "hole": 12,
-              "par": 3,
-              "hcp": 18,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 133,
-                "white": 178,
-                "blue": 186
-              },
-              "target": 4,
-              "note": "HCP 18 par3，果嶺中央就是好球。"
-            },
-            {
-              "hole": 13,
-              "par": 5,
-              "hcp": 4,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 415,
-                "white": 485,
-                "blue": 510
-              },
-              "target": 6,
-              "note": "HCP 4 par5，後九水池壓迫，分三段避水。"
-            },
-            {
-              "hole": 14,
-              "par": 4,
-              "hcp": 6,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 315,
-                "white": 370,
-                "blue": 405
-              },
-              "target": 5,
-              "note": "315 碼 par4，風小可進攻，風大保中線。"
-            },
-            {
-              "hole": 15,
-              "par": 4,
-              "hcp": 2,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 310,
-                "white": 375,
-                "blue": 410
-              },
-              "target": 6,
-              "note": "HCP 2，晚段高風險洞，寧短不進水。"
-            },
-            {
-              "hole": 16,
-              "par": 3,
-              "hcp": 10,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 100,
-                "white": 160,
-                "blue": 162
-              },
-              "target": 4,
-              "note": "100 碼 par3，拿最穩 wedge，避免短邊。"
-            },
-            {
-              "hole": 17,
-              "par": 4,
-              "hcp": 14,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 280,
-                "white": 345,
-                "blue": 385
-              },
-              "target": 5,
-              "note": "280 碼 par4，保守開球留完整角度。"
-            },
-            {
-              "hole": 18,
-              "par": 5,
-              "hcp": 16,
-              "yards": {
-                "recommendedTee": "red",
-                "red": 420,
-                "white": 475,
-                "blue": 490
-              },
-              "target": 6,
-              "note": "420 碼 par5，收尾不貪，三段到果嶺。"
-            }
-          ],
-          "trainingPlan": [
-            {
-              "title": "階段 1：開球與風中起始線",
-              "items": [
-                "Driver / 3W 各建立一個低失誤開球選項，前九優先用不右曲的球路。",
-                "練 7i、8i 低彈道 punch shot，風中只要求起始線與落點區。",
-                "用紅梯距離模擬 1、2、3、9 洞：開球後的第二桿只攻果嶺中央。"
-              ]
-            },
-            {
-              "title": "階段 2：100–135 碼得分區",
-              "items": [
-                "針對 5、8、12、16 洞建立 100 / 110 / 120 / 133 碼 carry 表。",
-                "W、9i、8i 做半揮與四分之三揮，避免頂風硬打滿桿。",
-                "par3 一律練果嶺中央與安全邊，不練短邊旗位。"
-              ]
-            },
-            {
-              "title": "階段 3：par5 三段與水池決策",
-              "items": [
-                "6、7、13、18 洞全部設計三桿到果嶺，不把第二桿打到最窄處。",
-                "水池洞練 layup 到完整 wedge 距離，寧可 85–105 碼進攻。",
-                "長推 9–12m 留 1.5m 內，讓保 bogey 的路線成立。"
-              ]
-            },
-            {
-              "title": "賽前一天",
-              "items": [
-                "確認當天風向與梯台，不改揮桿，只確認開球、100–135 碼與推桿手感。"
-              ]
-            }
-          ],
-          "checklist": [
-            "第一洞前先確認海風方向；前九所有碼數先用風修正。",
-            "紅梯作戰，若被迫白梯，目標總桿加 5–7 桿。",
-            "HCP 1/2/3 洞接受雙柏忌，不為了救 par 打高風險球。",
-            "後九看到水池時，先選安全落點再選球桿。",
-            "par5 預設三段，只有好 lie、順風、無水壓力才考慮進攻。",
-            "短 par4 可以搶分，但開球不能越過自己的穩定球路。"
-          ]
-        }
+      "targetEventFiles": [
+        "events/donghua-2026-07-16.json",
+        "events/bali-international-strategy.json"
       ]
     },
     {
       "id": "renwen",
       "name": "Renwen",
+      "gender": "male",
+      "avatar": "assets/avatars/renwen-cute-v1.png",
+      "avatarStyles": {
+        "cute": "assets/avatars/renwen-cute-v1.png",
+        "cyber": "assets/avatars/renwen-cyber-v1.png"
+      },
       "sessions": []
     },
     {
       "id": "dondon",
       "name": "DonDon",
+      "gender": "male",
+      "avatar": "assets/avatars/dondon-cute-v1.png",
+      "avatarStyles": {
+        "cute": "assets/avatars/dondon-cute-v1.png",
+        "cyber": "assets/avatars/dondon-cyber-v1.png"
+      },
       "sessions": []
     },
     {
       "id": "ann",
       "name": "Ann",
+      "gender": "male",
+      "avatar": "assets/avatars/ann-cute-v1.png",
+      "avatarStyles": {
+        "cute": "assets/avatars/ann-cute-v1.png",
+        "cyber": "assets/avatars/ann-cyber-v1.png"
+      },
       "sessions": []
     },
     {
       "id": "yoyo",
       "name": "Yoyo",
+      "gender": "female",
+      "avatar": "assets/avatars/yoyo-cute-v1.png",
+      "avatarStyles": {
+        "cute": "assets/avatars/yoyo-cute-v1.png",
+        "cyber": "assets/avatars/yoyo-cyber-v1.png"
+      },
       "sessions": []
     },
     {
       "id": "kelly",
       "name": "Kelly",
+      "gender": "female",
+      "avatar": "assets/avatars/kelly-cute-v1.png",
+      "avatarStyles": {
+        "cute": "assets/avatars/kelly-cute-v1.png",
+        "cyber": "assets/avatars/kelly-cyber-v1.png"
+      },
       "sessions": []
     }
   ]
