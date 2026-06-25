@@ -306,11 +306,29 @@
       '<path d="' + smile + '" fill="none" stroke="#050505" stroke-width="3.4" stroke-linecap="round"></path>';
   }
 
+  function compactEquipment(text) {
+    text = String(text || "");
+    if (!text) return "";
+    if (text.indexOf("Titleist T250") >= 0) return "新鐵桿 T250 5i-W · Qi35 木桿";
+    if (text.indexOf("Callaway") >= 0 || text.indexOf("Great Big Bertha") >= 0) return "Callaway 舊鐵桿 · Qi35 木桿";
+    if (text.indexOf("Kirkland") >= 0) return "舊楔桿 Kirkland · Qi35 木桿";
+    return text.length > 42 ? text.slice(0, 42) + "..." : text;
+  }
+
+  function headerSummary() {
+    const equipment = compactEquipment(CURMETA.equipment);
+    if (curSel === "all") {
+      const latest = LOADED[0] && LOADED[0].meta ? LOADED[0].meta.date : "";
+      return ["合計 " + LOADED.length + " 場", latest ? "最新 " + latest : "", equipment].filter(Boolean).join(" · ");
+    }
+    return [CURMETA.date || "", equipment].filter(Boolean).join(" · ");
+  }
+
   function renderHeader() {
     const M = MODEL;
     renderPlayerProfile(curPlayer, LOADED);
     document.querySelector("#h-title").textContent = (curPlayer.name || curPlayer.id || "") + (curSel === "all" ? " · 全部場次" : (CURMETA.label ? " · " + CURMETA.label : (CURMETA.date ? " · " + CURMETA.date : "")));
-    document.querySelector("#h-sub").textContent = (CURMETA.equipment || "") + (CURMETA.equipment && CURMETA.date ? " — " : "") + (curSel === "all" ? "" : (CURMETA.date || ""));
+    document.querySelector("#h-sub").textContent = headerSummary();
     document.querySelector("#sel-meta").textContent = (CURMETA.device ? "裝置 " + CURMETA.device + " · " : "") + (CURMETA.note || "");
     document.querySelector("#m-shots").textContent = M.totals.shots;
     document.querySelector("#m-used").textContent = M.totals.used;
