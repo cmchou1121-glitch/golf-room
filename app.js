@@ -79,6 +79,7 @@
   let RECENT_DISTANCES = readRecentDistances();
   let PINNED_DISTANCES = readPinnedDistances();
   let CONFIDENCE_VIEW = readConfidenceView();
+  let COURSE_MODE = readCourseMode();
   let CONFIDENCE_MODE = readConfidenceMode();
   let PLAYING_ADJUST = readPlayingAdjust();
   let PIN_POSITION = readPinPosition();
@@ -268,6 +269,8 @@
     renderStabilityTrends();
     renderBagProfiles();
     renderActionCenter();
+    renderCoachDigest();
+    renderPracticeMenu();
     renderConfidenceCard();
     renderFieldDock();
     renderLongCoach();
@@ -586,6 +589,144 @@
     )).join("");
   }
 
+  function renderCoachDigest() {
+    const el = document.querySelector("#coachdigest");
+    if (!el) return;
+    if (!LOADED.length || !ALLMODEL || !ALLANALYSIS) {
+      el.innerHTML = '<div class="statebox">匯入 CSV 後會自動產生可複製的教練摘要。</div>';
+      return;
+    }
+    const d = buildCoachDigest();
+    el.innerHTML = '<div class="coach-digest"><div class="coach-digest-head"><div><span>AUTO COACH</span><b>' + esc(d.title) + '</b></div><button class="coach-digest-copy" type="button">複製摘要</button></div>' +
+      '<div class="coach-digest-call">' + esc(d.call) + '</div>' +
+      '<div class="coach-digest-grid">' + d.items.map((it) => '<div class="' + esc(it.cls || "") + '"><b>' + esc(it.t) + '</b><span>' + esc(it.b) + '</span></div>').join("") + '</div>' +
+      '<div class="coach-digest-plan"><b>下一次練習</b><ol>' + d.practice.map((p) => '<li>' + esc(p) + '</li>').join("") + '</ol></div></div>';
+    const copy = el.querySelector(".coach-digest-copy");
+    if (copy) {
+      copy.addEventListener("click", async () => {
+        try {
+          await writeClipboardText(d.text);
+          copy.textContent = "已複製";
+          copy.classList.add("done");
+          setTimeout(() => {
+            copy.textContent = "複製摘要";
+            copy.classList.remove("done");
+          }, 1200);
+        } catch (e) {
+          copy.textContent = "失敗";
+          setTimeout(() => { copy.textContent = "複製摘要"; }, 1200);
+        }
+      });
+    }
+  }
+
+  function buildCoachDigest() {
+    const action = buildActionCenter();
+    const latest = LOADED[0] || {};
+    const latestStat = latest.model ? statFromModel(latest.model) : { shots: 0, rate: 0 };
+    const rows = LOADED.slice().reverse().map((L) => {
+      const s = statFromModel(L.model);
+      return { date: L.meta.date || "", shots: s.shots, miss: s.miss, rate: s.rate, model: L.model };
+    });
+    const latestRolling = rows.length ? rollingRate(rows, rows.length - 1, 3) : { rate: 0 };
+    const prevRolling = rows.length >= 2 ? rollingRate(rows, rows.length - 2, 3) : { rate: null };
+    const trend = rows.length >= 2 ? trendInfo(latestRolling.rate, prevRolling.rate, true) : { cls: "", label: "資料累積中", delta: null };
+    const clubRows = clubTrendRows(rows).filter((r) => r.latestShots >= 8 && r.latestRate != null);
+    const club = clubRows.length ? clubRows.slice().sort((a, b) => clubCoachScore(b) - clubCoachScore(a))[0] : null;
+    const event = ((curPlayer || {}).targetEvents || [])[EVENT_INDEX] || ((curPlayer || {}).targetEvents || [])[0] || null;
+    const eventText = event ? (event.course || event.title || "目標賽事") + "：" + (eventRiskHoles(event).join("、") || "高風險洞") + " 先保守一級" : "尚未設定目標賽事";
+    const title = (latest.meta && latest.meta.date ? latest.meta.date + " " : "") + "自動教練摘要";
+    const call = action.priority.title + "｜" + action.priority.body;
+    const items = [
+      { cls: trend.cls === "bad" ? "warn" : trend.cls === "good" ? "good" : "", t: "穩定性", b: "最新場次失誤率 " + pct(latestStat.rate) + "；近三場 " + pct(latestRolling.rate) + (trend.delta == null ? "，" + trend.label : "，" + trend.label + " " + signedPct(trend.delta)) },
+      { cls: club ? "warn" : "", t: "優先球桿", b: club ? club.club + " 最近五次出現失誤率 " + pct(club.latestRate) + "，樣本 " + club.latestShots + " 球" : "目前沒有單支球桿達到優先處理門檻" },
+      { cls: event ? "event" : "", t: "賽事提醒", b: eventText },
+      { cls: "", t: "資料範圍", b: "目前使用 " + LOADED.length + " 場、" + (ALLMODEL.shots ? ALLMODEL.shots.length : 0) + " 球自動重算" },
+    ];
+    const practice = (action.practice || []).slice(0, 3);
+    const text = [
+      title,
+      "重點：" + call,
+      items.map((it) => it.t + "：" + it.b).join("\n"),
+      "下一次練習：",
+      practice.map((p, i) => (i + 1) + ". " + p).join("\n"),
+    ].join("\n\n");
+    return { title, call, items, practice, text };
+  }
+
+  function renderPracticeMenu() {
+    const el = document.querySelector("#practicemenu");
+    if (!el) return;
+    if (!LOADED.length || !ALLMODEL || !ALLANALYSIS) {
+      el.innerHTML = '<div class="statebox">匯入 CSV 後會自動產生下一次練習菜單。</div>';
+      return;
+    }
+    const menu = buildPracticeMenu();
+    el.innerHTML = '<div class="practice-menu"><div class="practice-menu-head"><div><span>RANGE PLAN</span><b>' + esc(menu.title) + '</b></div><strong>' + esc(menu.total) + '</strong></div>' +
+      '<div class="practice-menu-grid">' + menu.blocks.map((b, i) =>
+        '<div class="practice-block ' + esc(b.cls || "") + '"><div class="practice-block-top"><span>' + String(i + 1).padStart(2, "0") + '</span><b>' + esc(b.title) + '</b><strong>' + esc(b.balls) + '</strong></div><p>' + esc(b.body) + '</p><em>' + esc(b.pass) + '</em></div>'
+      ).join("") + '</div></div>';
+  }
+
+  function buildPracticeMenu() {
+    const action = buildActionCenter();
+    const rows = LOADED.slice().reverse().map((L) => {
+      const s = statFromModel(L.model);
+      return { date: L.meta.date || "", shots: s.shots, miss: s.miss, rate: s.rate, model: L.model };
+    });
+    const clubRows = clubTrendRows(rows).filter((r) => r.latestShots >= 8 && r.latestRate != null);
+    const club = clubRows.length ? clubRows.slice().sort((a, b) => clubCoachScore(b) - clubCoachScore(a))[0] : null;
+    const priorityClub = club ? club.club : confidenceDefaultPracticeClub();
+    const event = ((curPlayer || {}).targetEvents || [])[EVENT_INDEX] || ((curPlayer || {}).targetEvents || [])[0] || null;
+    const eventRisk = event ? eventRiskHoles(event).slice(0, 3).join("、") : "";
+    const blocks = [
+      {
+        cls: "warm",
+        title: "熱身校準",
+        balls: "10 球",
+        body: "W / 9i 半揮到七成，先看起球高度與方向，不追距離。",
+        pass: "通過：10 球內至少 7 球能完整收桿，且沒有連續兩球大失誤。",
+      },
+      {
+        cls: "main",
+        title: "優先桿品質",
+        balls: "20 球",
+        body: "主練 " + priorityClub + "。每 5 球一組，只記穩定球與方向，失誤球立刻降速。",
+        pass: "通過：任兩組達成 4/5 穩定球；沒通過就不加速。",
+      },
+      {
+        cls: "ladder",
+        title: "距離梯控制",
+        balls: "18 球",
+        body: "選 3 個常用距離：" + practiceDistanceSet() + "。每個距離 6 球，目標放中間。",
+        pass: "通過：每個距離至少 4 球落在信心窗附近，短邊失誤不能連續出現。",
+      },
+      {
+        cls: "event",
+        title: "球場情境",
+        balls: "12 球",
+        body: event ? "模擬 " + (event.course || event.title || "目標球場") + " 高風險洞 " + (eventRisk || "指定洞") + "，每球先說策略再打。" : "模擬右/左/短/長四種危險邊，每球先指定安全 miss。",
+        pass: "通過：12 球內至少 9 球有明確目標線，爆掉後能立刻改保守打法。",
+      },
+    ];
+    return { title: "下一次 60 球練習菜單", total: "60 球", blocks, source: action.priority.title };
+  }
+
+  function confidenceDefaultPracticeClub() {
+    if (MODEL && MODEL.clubs) {
+      const candidates = ["7i", "8i", "9i", "W", "6i"].filter((c) => MODEL.clubs[c]);
+      if (candidates.length) return candidates[0];
+    }
+    return "7i";
+  }
+
+  function practiceDistanceSet() {
+    if (!MODEL || !MODEL.clubs) return "100 / 120 / 150y";
+    const vals = ["W", "9i", "7i"].map((c) => MODEL.clubs[c] && MODEL.clubs[c].carry).filter(Boolean);
+    if (vals.length >= 3) return vals.map((v) => Math.round(v) + "y").join(" / ");
+    return "100 / 120 / 150y";
+  }
+
   function buildLongCoach() {
     if (!LOADED.length) {
       return [{ p: 2, t: "先匯入場次", b: "目前還沒有可分析的歷史資料；CSV 進來後會自動產生長期教練建議。" }];
@@ -719,7 +860,10 @@
     const alt = data.alt;
     const command = confidenceCommand(main, CONFIDENCE_MODE, PLAYING_ADJUST, pin, lie, hazard);
     el.innerHTML =
-      '<div class="confidence confidence-view-' + esc(CONFIDENCE_VIEW) + '"><div class="confidence-top"><div class="confidence-copy"><b>剩餘 ' + TARGET_DISTANCE + ' 碼進攻' + (PLAYING_ADJUST || pin.adjust ? " → 實戰 " + playDistance + " 碼" : "") + '</b><span>以穩定球 carry 判斷，不追極限距離；差點高時優先選擇「可重複打到」的桿。</span></div>' +
+      '<div class="confidence confidence-view-' + esc(CONFIDENCE_VIEW) + (COURSE_MODE ? " confidence-course-mode" : "") + '">' +
+      confidenceCourseModeToggleHTML() +
+      (COURSE_MODE ? confidenceCourseModeHTML(main, alt, playDistance, data, pin, lie, hazard, command) : "") +
+      '<div class="confidence-top"><div class="confidence-copy"><b>剩餘 ' + TARGET_DISTANCE + ' 碼進攻' + (PLAYING_ADJUST || pin.adjust ? " → 實戰 " + playDistance + " 碼" : "") + '</b><span>以穩定球 carry 判斷，不追極限距離；差點高時優先選擇「可重複打到」的桿。</span></div>' +
       '<label class="confidence-input"><input id="target-distance" type="number" min="' + data.min + '" max="' + data.max + '" step="1" value="' + TARGET_DISTANCE + '"><span>碼</span></label></div>' +
       '<input class="confidence-range" id="target-distance-range" type="range" min="' + data.min + '" max="' + data.max + '" step="1" value="' + TARGET_DISTANCE + '">' +
       '<div class="confidence-view-toggle">' + confidenceViewOptions().map((v) => '<button type="button" data-view="' + v.id + '" class="' + (v.id === CONFIDENCE_VIEW ? "on" : "") + '">' + esc(v.label) + "</button>").join("") + "</div>" +
@@ -753,12 +897,47 @@
       confidenceCompareHTML(data.candidates) +
       confidenceLadderHTML(data.ladder) +
       confidencePocketHTML(data.pocket) +
+      confidenceClubCardsHTML(data.clubCards) +
       '<div class="confidence-plan"><b>' + esc(main.plan.title) + '</b><span>' + esc(main.plan.body) + '</span></div>' +
       '<div class="confidence-checks">' + main.checks.map((c) => '<div class="confidence-check"><b>' + esc(c.t) + '</b><span>' + esc(c.b) + '</span></div>').join("") + "</div>" +
       '<div class="confidence-matrix">' + data.matrix.map((m) => '<button class="confidence-tile ' + m.cls + '" type="button" data-distance="' + m.distance + '"><b>' + m.distance + 'y</b><strong>' + esc(m.club) + '</strong><span>' + esc(m.gapText) + ' · 信心 ' + m.score + "/100</span></button>").join("") + "</div>" +
       '<div class="confidence-bands">' + data.bands.map((b) => '<span class="confidence-band">' + esc(b.club) + " " + b.low + "-" + b.high + "y</span>").join("") + "</div></div>";
     bindConfidenceInputs();
     renderFieldDock();
+  }
+
+  function confidenceCourseModeToggleHTML() {
+    return '<div class="course-mode-toggle" role="group" aria-label="信心卡模式">' +
+      '<button type="button" data-course-mode="on" class="' + (COURSE_MODE ? "on" : "") + '">下場模式</button>' +
+      '<button type="button" data-course-mode="off" class="' + (!COURSE_MODE ? "on" : "") + '">分析模式</button>' +
+      '</div>';
+  }
+
+  function confidenceCourseModeHTML(main, alt, playDistance, data, pin, lie, hazard, command) {
+    if (!main || main.club === "—") return "";
+    const light = confidenceTrafficLight(main);
+    const band = confidenceDistanceBandParts(main, alt, playDistance);
+    const aim = main.aim && main.aim.call ? main.aim.call : "瞄中間";
+    const altText = alt && alt.club ? alt.club : "短一支";
+    return '<div class="course-card ' + esc(light.cls) + '">' +
+      '<div class="course-card-head"><span>FIELD MODE</span><b>' + esc(light.label) + '</b></div>' +
+      '<div class="course-main">' +
+        '<label><span>剩餘</span><input id="course-distance" type="number" min="' + data.min + '" max="' + data.max + '" step="1" value="' + TARGET_DISTANCE + '"><small>碼</small></label>' +
+        '<div><strong>拿 ' + esc(main.club) + '</strong><em>備用 ' + esc(altText) + '｜' + esc(band.title) + '</em></div>' +
+      '</div>' +
+      '<div class="course-call"><b>' + esc(aim) + '</b><span>' + esc(band.rule) + '</span></div>' +
+      '<div class="course-mini">' +
+        '<span><b>' + esc(String(main.confidence.score || 0)) + '</b><small>信心</small></span>' +
+        '<span><b>' + esc(main.window.low + "-" + main.window.high) + '</b><small>信心窗</small></span>' +
+        '<span><b>' + esc(playDistance + "y") + '</b><small>實戰距離</small></span>' +
+      '</div>' +
+      '<div class="course-stepper">' + [-10, -5, 5, 10].map((v) => '<button class="course-step" type="button" data-step="' + v + '">' + (v > 0 ? "+" : "") + v + '</button>').join("") + '<button class="course-copy" type="button" data-command="' + esc(command) + '">複製口令</button></div>' +
+      '<div class="course-controls">' +
+        '<div class="course-chipline course-pin">' + confidencePinPositions().map((p) => '<button type="button" data-pin="' + p.id + '" class="' + (p.id === pin.id ? "on" : "") + '">' + esc(p.shortLabel || p.label.replace(" -5", "").replace(" +5", "")) + '</button>').join("") + '</div>' +
+        '<div class="course-chipline course-lie">' + confidenceLieOptions().map((l) => '<button type="button" data-lie="' + l.id + '" class="' + (l.id === lie.id ? "on" : "") + '">' + esc(l.shortLabel || l.label) + '</button>').join("") + '</div>' +
+        '<div class="course-chipline course-hazard">' + confidenceHazardOptions().map((h) => '<button type="button" data-hazard="' + h.id + '" class="' + (h.id === hazard.id ? "on" : "") + '">' + esc(h.shortLabel || h.label) + '</button>').join("") + '</div>' +
+      '</div>' +
+      '</div>';
   }
 
   function bindConfidenceInputs() {
@@ -775,6 +954,40 @@
     if (range) input.addEventListener("input", () => { if (range) range.value = input.value; });
     if (range) range.addEventListener("input", () => update(range.value, false));
     if (range) range.addEventListener("change", () => update(range.value, true));
+    const courseInput = document.querySelector("#course-distance");
+    if (courseInput) courseInput.addEventListener("change", () => update(courseInput.value, true));
+    if (courseInput) courseInput.addEventListener("input", () => { if (input) input.value = courseInput.value; if (range) range.value = courseInput.value; });
+    document.querySelectorAll(".course-step").forEach((b) => {
+      b.addEventListener("click", () => update(TARGET_DISTANCE + (Number(b.dataset.step) || 0), true));
+    });
+    document.querySelectorAll(".course-mode-toggle button").forEach((b) => {
+      b.addEventListener("click", () => {
+        COURSE_MODE = b.dataset.courseMode === "on";
+        saveCourseMode(COURSE_MODE);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".course-pin button").forEach((b) => {
+      b.addEventListener("click", () => {
+        PIN_POSITION = normalizePinPosition(b.dataset.pin);
+        savePinPosition(PIN_POSITION);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".course-lie button").forEach((b) => {
+      b.addEventListener("click", () => {
+        BALL_LIE = normalizeLie(b.dataset.lie);
+        saveBallLie(BALL_LIE);
+        renderConfidenceCard();
+      });
+    });
+    document.querySelectorAll(".course-hazard button").forEach((b) => {
+      b.addEventListener("click", () => {
+        HAZARD_SIDE = normalizeHazardSide(b.dataset.hazard);
+        saveHazardSide(HAZARD_SIDE);
+        renderConfidenceCard();
+      });
+    });
     document.querySelectorAll(".confidence-quick button").forEach((b) => {
       b.addEventListener("click", () => update(b.dataset.distance, true));
     });
@@ -785,7 +998,7 @@
         renderConfidenceCard();
       });
     });
-    document.querySelectorAll(".confidence-tile,.confidence-ladder-row,.confidence-pocket-card,.confidence-recent button[data-distance],.confidence-pinned button[data-distance]").forEach((b) => {
+    document.querySelectorAll(".confidence-tile,.confidence-ladder-row,.confidence-pocket-card,.confidence-clubcard,.confidence-recent button[data-distance],.confidence-pinned button[data-distance]").forEach((b) => {
       b.addEventListener("click", () => update(b.dataset.distance, true));
     });
     const clearRecent = document.querySelector(".confidence-recent-clear");
@@ -847,6 +1060,10 @@
     if (noteCopy) {
       noteCopy.addEventListener("click", () => copyConfidenceNote(noteCopy));
     }
+    const courseCopy = document.querySelector(".course-copy");
+    if (courseCopy) {
+      courseCopy.addEventListener("click", () => copyCourseCommand(courseCopy));
+    }
     const reset = document.querySelector(".confidence-reset");
     if (reset) {
       reset.addEventListener("click", () => {
@@ -878,6 +1095,23 @@
   async function copyConfidenceNote(button) {
     const box = button && button.closest(".confidence-note");
     const text = box ? box.dataset.note || "" : "";
+    if (!text) return;
+    try {
+      await writeClipboardText(text);
+      button.textContent = "已複製";
+      button.classList.add("done");
+      setTimeout(() => {
+        button.textContent = "複製口令";
+        button.classList.remove("done");
+      }, 1200);
+    } catch (e) {
+      button.textContent = "失敗";
+      setTimeout(() => { button.textContent = "複製口令"; }, 1200);
+    }
+  }
+
+  async function copyCourseCommand(button) {
+    const text = button ? button.dataset.command || "" : "";
     if (!text) return;
     try {
       await writeClipboardText(text);
@@ -1023,6 +1257,7 @@
         matrix: [],
         ladder: [],
         pocket: [],
+        clubCards: [],
         bands: [],
       };
     }
@@ -1041,6 +1276,7 @@
       matrix: confidenceMatrix(M, mode, quick, lie, hazard),
       ladder: confidenceDecisionLadder(M, mode, quick, lie, hazard),
       pocket: confidencePocketCards(M, mode, lie, hazard),
+      clubCards: confidenceClubCards(M, mode, lie, hazard),
       bands: rows.slice().sort((a, b) => b.o.carry - a.o.carry).map((r) => ({ club: r.club, low: r.low, high: r.high })),
     };
   }
@@ -1172,6 +1408,70 @@
           '<i class="' + esc(c.light.cls) + '">' + esc(c.light.label) + '</i><em>' + esc(c.tip) + '</em>' +
         '</button>'
       ).join("") + "</div></div>";
+  }
+
+  function confidenceClubCards(M, mode, lie, hazard) {
+    if (!M || !M.order || !M.order.length) return [];
+    return M.order
+      .filter((c) => M.clubs[c] && M.clubs[c].carry > 0)
+      .map((c) => {
+        const row = confidenceRows(M, M.clubs[c].carry, mode, lie, hazard).find((r) => r.club === c);
+        if (!row) return null;
+        const pick = confidencePick(row, M.clubs[c].carry, true, mode);
+        const light = confidenceTrafficLight(pick);
+        const safeLow = Math.max(1, Math.round(row.low + 2));
+        const safeHigh = Math.max(safeLow, Math.round(row.high - 2));
+        return {
+          club: c,
+          cls: light.cls,
+          light: light.label,
+          score: pick.confidence.score || 0,
+          carry: Math.round(row.o.carry || 0),
+          comfort: safeLow + "-" + safeHigh + "y",
+          attack: Math.round(row.low) + "-" + Math.round(row.high) + "y",
+          safe: Math.max(1, Math.round(row.low - 8)) + "-" + Math.round(row.low + 3) + "y",
+          miss: confidenceClubMissText(row),
+          avoid: confidenceClubAvoidText(row),
+          sample: (row.o.n_used || 0) + "/" + (row.o.n_total || 0),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.carry - a.carry);
+  }
+
+  function confidenceClubMissText(row) {
+    const o = row.o || {};
+    const left = o.n_left || 0;
+    const right = o.n_right || 0;
+    if ((o.mishit_rate || 0) >= 40) return "失誤偏高，先當保守推進桿";
+    if (right >= left * 1.5 && right - left >= 2) return "常見 miss：右側";
+    if (left >= right * 1.5 && left - right >= 2) return "常見 miss：左側";
+    if ((o.total_std || 0) >= 18) return "距離波動較大";
+    return "方向相對均衡";
+  }
+
+  function confidenceClubAvoidText(row) {
+    const o = row.o || {};
+    const isWood = !!WOODS[row.club];
+    if ((o.n_used || 0) < 6) return "樣本少，不打關鍵旗位";
+    if ((o.mishit_rate || 0) >= 35) return "短邊或 OB 邊不要硬攻";
+    if (isWood && (o.total_std || 0) >= 20) return "窄球道與強制 carry 先避開";
+    if ((o.carry_max || 0) - (o.carry_min || 0) >= 28) return "前後障礙很近時少用";
+    return "正常使用，目標放中間";
+  }
+
+  function confidenceClubCardsHTML(cards) {
+    cards = cards || [];
+    if (!cards.length) return "";
+    return '<div class="confidence-clubcards"><div class="confidence-clubcards-title"><b>球桿信任卡</b><span>每支桿的舒適距離、進攻區與不要硬攻的情境</span></div><div class="confidence-clubcards-grid">' +
+      cards.map((c) =>
+        '<button class="confidence-clubcard ' + esc(c.cls) + '" type="button" data-distance="' + c.carry + '">' +
+          '<div class="confidence-clubcard-top"><strong>' + esc(c.club) + '</strong><i>' + esc(c.light) + '</i></div>' +
+          '<div class="confidence-clubcard-carry"><b>' + c.carry + 'y</b><span>平均 carry</span></div>' +
+          '<div class="confidence-clubcard-ranges"><span><b>' + esc(c.comfort) + '</b><small>舒適</small></span><span><b>' + esc(c.attack) + '</b><small>可攻</small></span><span><b>' + esc(c.safe) + '</b><small>保守</small></span></div>' +
+          '<p>' + esc(c.miss) + '</p><em>' + esc(c.avoid) + '｜樣本 ' + esc(c.sample) + '｜信心 ' + c.score + '</em>' +
+        '</button>'
+      ).join("") + '</div></div>';
   }
 
   function confidencePick(r, target, primary, mode) {
@@ -1795,9 +2095,9 @@
 
   function confidencePinPositions() {
     return [
-      { id: "front", label: "前旗 -5", adjust: -5 },
-      { id: "middle", label: "中間", adjust: 0 },
-      { id: "back", label: "後旗 +5", adjust: 5 },
+      { id: "front", label: "前旗 -5", shortLabel: "前旗", adjust: -5 },
+      { id: "middle", label: "中間", shortLabel: "中旗", adjust: 0 },
+      { id: "back", label: "後旗 +5", shortLabel: "後旗", adjust: 5 },
     ];
   }
 
@@ -1807,9 +2107,9 @@
 
   function confidenceLieOptions() {
     return [
-      { id: "fairway", label: "球道" },
-      { id: "rough", label: "長草" },
-      { id: "tee", label: "架 Tee" },
+      { id: "fairway", label: "球道", shortLabel: "球道" },
+      { id: "rough", label: "長草", shortLabel: "長草" },
+      { id: "tee", label: "架 Tee", shortLabel: "Tee" },
     ];
   }
 
@@ -1819,7 +2119,7 @@
 
   function confidenceHazardOptions() {
     return [
-      { id: "none", label: "無危險", shortLabel: "危險" },
+      { id: "none", label: "無危險", shortLabel: "無" },
       { id: "left", label: "左危", shortLabel: "左邊" },
       { id: "right", label: "右危", shortLabel: "右邊" },
       { id: "short", label: "短危", shortLabel: "短邊" },
@@ -1837,6 +2137,10 @@
 
   function normalizeConfidenceView(v) {
     return v === "full" ? "full" : "compact";
+  }
+
+  function normalizeCourseMode(v) {
+    return v === true || v === "true" || v === "on";
   }
 
   function confidenceModePenalty(mode, gap, risk, isWood, target) {
@@ -2518,6 +2822,7 @@
     h += '<div class="event-meta">' + esc(e.goalScore || "") + "</div></div>";
 
     const holeTargets = e.holeTargets || [];
+    h += eventConfidencePlannerHTML(e, holeTargets);
     const holeMaps = holeTargets.filter((r) => eventHoleImage(e, r.hole));
     if (e.courseMap || holeMaps.length || e.mapNote) {
       const map = e.courseMap || {};
@@ -2541,11 +2846,12 @@
       h += "</div>";
     }
 
-    h += '<div class="sec"><div class="sec-h"><span class="sec-n num">03</span><span class="sec-t">逐洞目標桿</span></div><div class="tablewrap"><table class="dtable event-hole-table"><thead><tr><th>洞</th><th>Par</th><th>碼數</th><th>HCP</th><th>目標</th><th>重點</th></tr></thead><tbody>';
+    h += '<div class="sec"><div class="sec-h"><span class="sec-n num">03</span><span class="sec-t">逐洞目標桿</span></div><div class="tablewrap"><table class="dtable event-hole-table"><thead><tr><th>洞</th><th>Par</th><th>碼數</th><th>信心卡</th><th>HCP</th><th>目標</th><th>重點</th></tr></thead><tbody>';
     holeTargets.forEach((r) => {
       const holeTag = eventHoleTag(e, r.hole);
       const parClass = r.par === 3 ? "par3" : r.par === 5 ? "par5" : "par4";
-      h += '<tr class="' + parClass + '"><td>' + r.hole + (holeTag ? " · " + esc(holeTag) : "") + '</td><td><span class="par-pill ' + parClass + '">Par ' + r.par + '</span></td><td class="yard-cell">' + eventYardText(e, r) + "</td><td>" + esc(r.hcp || "—") + "</td><td>" + esc(r.target || "—") + "</td><td style=\"white-space:normal;text-align:left\">" + esc(r.note || "") + "</td></tr>";
+      const plan = eventHoleConfidencePlan(e, r);
+      h += '<tr class="' + parClass + '"><td>' + r.hole + (holeTag ? " · " + esc(holeTag) : "") + '</td><td><span class="par-pill ' + parClass + '">Par ' + r.par + '</span></td><td class="yard-cell">' + eventYardText(e, r) + '</td><td>' + eventHoleConfidenceButton(plan) + "</td><td>" + esc(r.hcp || "—") + "</td><td>" + esc(r.target || "—") + "</td><td style=\"white-space:normal;text-align:left\">" + esc(r.note || "") + "</td></tr>";
     });
     h += "</tbody></table></div></div>";
 
@@ -2571,6 +2877,97 @@
         renderTargetEvents();
       });
     }
+    bindEventConfidenceButtons();
+  }
+
+  function eventConfidencePlannerHTML(e, holeTargets) {
+    const plans = (holeTargets || []).map((r) => eventHoleConfidencePlan(e, r)).filter(Boolean);
+    if (!plans.length) return "";
+    const key = plans.filter((p) => p.priority).slice(0, 8);
+    const rows = (key.length ? key : plans.slice(0, 8));
+    return '<div class="sec"><div class="sec-h"><span class="sec-n num">02A</span><span class="sec-t">逐洞信心卡連動</span></div>' +
+      '<div class="event-confidence-grid">' + rows.map((p) =>
+        '<button class="event-confidence-card ' + esc(p.cls) + '" type="button" data-event-distance="' + p.distance + '">' +
+          '<span>Hole ' + p.hole + ' · Par ' + p.par + '</span><strong>' + p.distance + 'y</strong><b>' + esc(p.club) + '</b><small>' + esc(p.label + "｜" + p.note) + '</small>' +
+        '</button>'
+      ).join("") + '</div><div class="note">點擊任一洞會切到信心球桿距離卡，打開下場模式並帶入該洞預估距離。</div></div>';
+  }
+
+  function eventHoleConfidenceButton(plan) {
+    if (!plan) return "—";
+    return '<button class="event-confidence-mini ' + esc(plan.cls) + '" type="button" data-event-distance="' + plan.distance + '"><b>' + plan.distance + 'y</b><span>' + esc(plan.club) + '</span></button>';
+  }
+
+  function bindEventConfidenceButtons() {
+    document.querySelectorAll("[data-event-distance]").forEach((b) => {
+      b.addEventListener("click", () => {
+        const n = Math.round(Number(b.dataset.eventDistance) || TARGET_DISTANCE);
+        TARGET_DISTANCE = clamp(n, 1, 320);
+        COURSE_MODE = true;
+        CONFIDENCE_VIEW = "compact";
+        saveCourseMode(COURSE_MODE);
+        saveConfidenceView(CONFIDENCE_VIEW);
+        rememberRecentDistance(TARGET_DISTANCE, 1, 320);
+        setTab("data");
+        renderConfidenceCard();
+        const card = document.querySelector("#confidence-card");
+        if (card && card.scrollIntoView) card.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+  }
+
+  function eventHoleConfidencePlan(e, row) {
+    const yard = eventPrimaryYard(e, row);
+    if (!yard) return null;
+    const par = Number(row.par) || 4;
+    const risk = eventHoleTag(e, row.hole);
+    let distance = yard;
+    let label = "開球進攻";
+    if (par === 4) {
+      const tee = eventTeeShotDistance(risk);
+      distance = clamp(Math.round(yard - tee), 65, 220);
+      label = "第二桿預估";
+    } else if (par === 5) {
+      distance = yard >= 520 ? 120 : 100;
+      label = "第三桿 layup";
+    } else {
+      label = "Par3 進攻";
+    }
+    const pick = MODEL && MODEL.order && MODEL.order.length ? confidenceData(MODEL, distance, "safe", BALL_LIE, risk ? eventRiskToHazard(risk) : HAZARD_SIDE).main : null;
+    const light = pick ? confidenceTrafficLight(pick) : { cls: "stop", label: "LAY" };
+    return {
+      hole: row.hole,
+      par,
+      distance,
+      label,
+      club: pick && pick.club ? pick.club : "—",
+      cls: light.cls,
+      note: risk ? "避" + risk : (row.note || "照策略打中間"),
+      priority: !!risk || par === 3 || par === 5,
+    };
+  }
+
+  function eventTeeShotDistance(risk) {
+    const d = MODEL && MODEL.clubs ? MODEL.clubs.D : null;
+    const w3 = MODEL && MODEL.clubs ? MODEL.clubs["3W"] : null;
+    const base = risk && w3 ? w3.total : d ? d.total : w3 ? w3.total : 190;
+    return Math.round((base || 190) * (risk ? 0.92 : 0.96));
+  }
+
+  function eventRiskToHazard(risk) {
+    if (risk === "右OB") return "right";
+    if (risk === "左OB") return "left";
+    if (risk === "水") return "short";
+    return "none";
+  }
+
+  function eventPrimaryYard(e, row) {
+    const hole = typeof row === "number" ? row : row.hole;
+    const target = typeof row === "object" ? row : (e.holeTargets || []).find((r) => r.hole === hole) || {};
+    const y = target.yards || (String(e.id || "").indexOf("donghua") >= 0 ? DONGHUA_YARDS[hole] : null);
+    if (!y) return 0;
+    const preferred = y.recommendedTee || y.preferred || "red";
+    return Math.round(Number(y[preferred] || y.red || y.white || y.blue || y.recommended || 0));
   }
 
   function eventOptionLabel(e) {
@@ -2716,6 +3113,13 @@
       return "compact";
     }
   }
+  function readCourseMode() {
+    try {
+      return normalizeCourseMode(localStorage.getItem("golfRoomCourseMode"));
+    } catch (e) {
+      return false;
+    }
+  }
   function readConfidenceMode() {
     try {
       return normalizeConfidenceMode(localStorage.getItem("golfRoomConfidenceMode"));
@@ -2780,6 +3184,11 @@
   function saveConfidenceView(v) {
     try {
       localStorage.setItem("golfRoomConfidenceView", normalizeConfidenceView(v));
+    } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
+  }
+  function saveCourseMode(v) {
+    try {
+      localStorage.setItem("golfRoomCourseMode", normalizeCourseMode(v) ? "true" : "false");
     } catch (e) { /* localStorage 可能在 file:// 或隱私模式被擋 */ }
   }
   function saveConfidenceMode(v) {
